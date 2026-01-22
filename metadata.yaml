@@ -1,0 +1,6 @@
+name: astrbot_plugin_prompt_inject
+display_name: 提示词注入器
+desc: 根据用户消息内容，自动向 LLM 注入预设提示词，从而临时或持续影响 AI 的回复行为, 支持在面板设置多套提示词和触发行为
+author: Zhalslar
+version: 1.0.0
+repo: https://github.com/Zhalslar/astrbot_plugin_prompt_inject

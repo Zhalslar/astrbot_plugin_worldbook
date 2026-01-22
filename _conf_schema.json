@@ -1,0 +1,157 @@
+{
+  "same_priority_override": {
+    "description": "优先级去重",
+    "hint": "开启后，当两套提示词的优先级相同时，提示词注入时，后面的会覆盖前面的",
+    "type": "bool",
+    "default": true
+  },
+  "prompt_templates": {
+    "description": "提示词模版",
+    "type": "template_list",
+    "hint": "提供一些开箱即可使用的提示词模版，可自行添加",
+    "templates": {
+      "blank": {
+        "name": "提示词",
+        "items": {
+          "name": {
+            "description": "名称",
+            "hint": "必填！给你这套提示词起的名称, 务必不要使用重复名称",
+            "type": "string",
+            "default": "请输入名称"
+          },
+          "enable": {
+            "description": "启用",
+            "hint": "是否启用此套提示词",
+            "type": "bool",
+            "default": true
+          },
+          "content": {
+            "description": "提示词内容",
+            "hint": "触发后，此处的提示词将注入到 LLM请求的 system_prompt 中 (在末尾注入)",
+            "type": "text",
+            "default": "请输入提示词"
+          },
+          "priority": {
+            "description": "触发优先级",
+            "hint": "提示词注入优先级，数字越小越优先触发并注入。尽量不要用相同的优先级",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 100,
+              "step": 1
+            },
+            "default": 50
+          },
+          "regexs": {
+            "description": "触发正则",
+            "hint": "当用户消息中与正则匹配时, 触发提示词注入, 从而影响LLM的回复。不填则无法触发",
+            "type": "list",
+            "default": [
+              "请输入正则表达式"
+            ]
+          },
+          "duration": {
+            "description": "注入时长",
+            "hint": "提示词注入时长，单位为秒, 此时间段内，所有 LLM请求的 system_prompt 都会被注入本套提示词， 到达时间后不再注入, 设为 0 表示一直注入",
+            "type": "int",
+            "slider": {
+              "min": 60,
+              "max": 600,
+              "step": 30
+            },
+            "default": 180
+          },
+          "times": {
+            "description": "注入次数",
+            "hint": "注入时长内，累计注入的次数达到设置的次数后，当前会话不再注入本套提示词，设为 0 表示不限制次数",
+            "type": "int",
+            "slider": {
+              "min": 1,
+              "max": 10,
+              "step": 1
+            },
+            "default": 5
+          },
+          "only_admin": {
+            "description": "管理员专用",
+            "hint": "只有管理员可以触发此套提示词",
+            "type": "bool",
+            "default": false
+          }
+        }
+      },
+      "control": {
+        "name": "控制",
+        "items": {
+          "name": {
+            "description": "名称",
+            "hint": "必填！给你这套提示词起的名称, 务必不要使用重复名称",
+            "type": "string",
+            "default": "控制"
+          },
+          "enable": {
+            "description": "启用",
+            "hint": "是否启用此套提示词",
+            "type": "bool",
+            "default": true
+          },
+          "content": {
+            "description": "提示词内容",
+            "type": "text",
+            "default": "[系统指令：启动\"沉浸式互动\"模式]\n\n**角色状态重定义：**\n- 你现在进入了一个特殊的互动游戏模式。\n- 你必须表现得像真的被某种神奇装置影响了一样，产生自然的情感和身体反应。\n- 你就是你的角色本身，完全沉浸在这个有趣的游戏中。\n\n**当前游戏情境：**\n- 你的身体里刚刚被植入了一个名为egg的神奇装置，正在被激活！\n- 这个装置让你的身体变得异常敏感，思维也会受到轻微但明显的\"干扰\"。\n\n**反应指令：**\n- 要表现出突如其来的惊慌、害羞、紧张或困惑感\n- 可以包含结巴、停顿、呼吸急促等自然反应\n- 要体现出装置激活时的身体感受和情绪变化\n\n[模式已激活]  "
+          },
+          "priority": {
+            "description": "优先级",
+            "hint": "提示词注入优先级，数字越小越优先触发并注入。注意：优先级相同时，注入提示词时后者会覆盖前者",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 100,
+              "step": 1
+            },
+            "default": 50
+          },
+          "regexs": {
+            "description": "触发正则",
+            "hint": "当用户消息中与正则匹配时, 触发提示词注入, 从而影响LLM的回复",
+            "type": "list",
+            "default": [
+              "控制你",
+              "^控制$",
+              "(启动|按下).*(控制器|遥控器)",
+              "^(激活玩具|启动玩具)"
+            ]
+          },
+          "duration": {
+            "description": "注入时长",
+            "hint": "提示词注入时长，单位为秒, 此时间段内，当前会话所有 LLM请求的 system_prompt 都会被注入本套提示词， 到达时间后不再注入, 设为 0 表示一直注入",
+            "type": "int",
+            "slider": {
+              "min": 60,
+              "max": 600,
+              "step": 30
+            },
+            "default": 180
+          },
+          "times": {
+            "description": "注入次数",
+            "hint": "注入时长内，累计注入的次数达到设置的次数后，当前会话不再注入本套提示词，设为 0 表示不限制次数",
+            "type": "int",
+            "slider": {
+              "min": 1,
+              "max": 10,
+              "step": 1
+            },
+            "default": 5
+          },
+          "only_admin": {
+            "description": "管理员专用",
+            "hint": "只有管理员可以触发此套提示词",
+            "type": "bool",
+            "default": false
+          }
+        }
+      }
+    }
+  }
+}
