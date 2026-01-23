@@ -13,12 +13,13 @@ class PromptItem(ConfigNode):
     __template_key: str
     name: str
     enable: bool
+    only_admin: bool
+    priority: int
     regexs: list[str]
     content: str
     duration: int
     times: int
-    priority: int
-    only_admin: bool
+
     _activated_at: float | None = None
     _inject_count: int = 0
     _compiled_regexs: list[re.Pattern] = []

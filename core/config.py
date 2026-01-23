@@ -103,7 +103,6 @@ class ConfigNode:
 
 
 class PluginConfig(ConfigNode):
-    same_priority_override: bool
     prompt_templates: list[dict[str, Any]]
 
     def __init__(self, config: AstrBotConfig):

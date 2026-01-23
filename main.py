@@ -20,20 +20,6 @@ class PromptInjectPlugin(Star):
         self.prompt_mgr = PromptManager(self.cfg)
         self.sessions = SessionCache()
 
-    def override_same_priority(self, prompts: list[PromptItem]) -> list[PromptItem]:
-        """对同优先级的提示词进行去重"""
-        final: list[PromptItem] = []
-        seen_priority: set[int] = set()
-
-        for p in reversed(prompts):
-            if p.priority in seen_priority:
-                continue
-            seen_priority.add(p.priority)
-            final.append(p)
-
-        final.reverse()
-        return final
-
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def message_handler(self, event: AstrMessageEvent):
         """监听用户消息，激活提示词"""
@@ -46,10 +32,6 @@ class PromptInjectPlugin(Star):
         prompts = self.prompt_mgr.match_prompts(msg)
         if not prompts:
             return
-
-        # 优先级去重
-        if self.cfg.same_priority_override:
-            prompts = self.override_same_priority(prompts)
 
         # 权限过滤
         if not event.is_admin():
