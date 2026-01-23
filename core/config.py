@@ -103,8 +103,15 @@ class ConfigNode:
 
 
 class PluginConfig(ConfigNode):
+    default_duration: int
+    default_times: int
+    admin_priority_str: str
     prompt_templates: list[dict[str, Any]]
 
     def __init__(self, config: AstrBotConfig):
         super().__init__(config)
-
+        self.admin_priority = [
+            int(x) for x in self.admin_priority_str.split() if x.isdigit()
+        ]
+    def is_admin_priority(self, priority: int) -> bool:
+        return priority in self.admin_priority

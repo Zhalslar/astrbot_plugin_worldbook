@@ -7,7 +7,7 @@ from astrbot.core.star import Star
 from astrbot.core.star.context import Context
 
 from .core.config import PluginConfig
-from .core.prompt import PromptItem, PromptManager
+from .core.prompt import PromptManager
 from .core.session import SessionCache
 
 
@@ -35,7 +35,7 @@ class PromptInjectPlugin(Star):
 
         # 权限过滤
         if not event.is_admin():
-            prompts = [p for p in prompts if not p.only_admin]
+            prompts = [p for p in prompts if not self.cfg.is_admin_priority(p.priority)]
 
         # 激活提示词
         self.sessions.activate(umo, prompts)
@@ -82,17 +82,90 @@ class PromptInjectPlugin(Star):
         """清除当前会话要注入的所有提示词"""
         self.sessions.deactivate(event.unified_msg_origin)
 
+    @filter.command("启用提示词")
+    async def enable_prompt(self, event: AstrMessageEvent):
+        """按 name 启用提示词（支持多个）"""
+        names = event.message_str.split()[1:]
+        if not names:
+            yield event.plain_result("请指定要启用的提示词名称")
+            return
+
+        ok, fail = self.prompt_mgr.enable_prompts(names)
+
+        lines = []
+        if ok:
+            lines.append("已启用：" + ", ".join(ok))
+        if fail:
+            lines.append("未找到：" + ", ".join(fail))
+
+        yield event.plain_result("\n".join(lines))
+
+    @filter.command("禁用提示词")
+    async def disable_prompt(self, event: AstrMessageEvent):
+        """按 name 禁用提示词（支持多个）"""
+        names = event.message_str.split()[1:]
+        if not names:
+            yield event.plain_result("请指定要禁用的提示词名称")
+            return
+
+        ok, fail = self.prompt_mgr.disable_prompts(names)
+
+        lines = []
+        if ok:
+            lines.append("已禁用：" + ", ".join(ok))
+        if fail:
+            lines.append("未找到：" + ", ".join(fail))
+
+        yield event.plain_result("\n".join(lines))
+
     @filter.command("查看提示词")
-    async def view_prompt(self, event: AstrMessageEvent, name: str | None = None):
-        """查看某一提示词, 默认查看所有"""
-        final: list[PromptItem] = []
-        if name:
-            if prompt := self.prompt_mgr.get_prompt(name):
-                final.append(prompt)
+    async def view_prompt(self, event: AstrMessageEvent, arg: str | None = None):
+        """查看提示词（全部 / 启用 / 禁用 / 单个）"""
+        if arg == "启用":
+            prompts = self.prompt_mgr.list_enabled_prompts()
+        elif arg == "禁用":
+            prompts = self.prompt_mgr.list_disabled_prompts()
+        elif arg:
+            prompt = self.prompt_mgr.get_prompt(arg)
+            prompts = [prompt] if prompt else []
         else:
-            final.extend(self.prompt_mgr.prompts)
-        if not final:
+            prompts = self.prompt_mgr.list_prompts()
+
+        if not prompts:
             yield event.plain_result("未找到任何提示词")
             return
-        msg = "\n\n".join(f"【{p.name}】\n{p.content}" for p in final)
-        yield event.plain_result(msg)
+
+        prompts = sorted(prompts, key=lambda p: p.priority)
+        blocks = [p.display() for _, p in enumerate(prompts, start=1)]
+        yield event.plain_result("\n\n\n\n".join(blocks))
+
+    @filter.command("添加提示词")
+    async def add_prompt(self, event: AstrMessageEvent, name: str):
+        """添加一个简单提示词（name + 当前消息内容）"""
+        if len(name) > 10:
+            yield event.plain_result("提示词名称过长")
+            return
+        content = event.message_str.removeprefix(f"添加提示词 {name}")
+        if not content:
+            yield event.plain_result("请输入提示词内容")
+            return
+        self.prompt_mgr.add_prompt(name, content)
+        yield event.plain_result(f"✅ 已添加提示词：{name}")
+
+    @filter.command("删除提示词")
+    async def delete_prompt(self, event: AstrMessageEvent):
+        """按 name 删除提示词（支持多个）"""
+        names = event.message_str.split()[1:]
+        if not names:
+            yield event.plain_result("请指定要删除的提示词名称")
+            return
+
+        ok, fail = self.prompt_mgr.remove_prompts(names)
+
+        lines = []
+        if ok:
+            lines.append("🗑 已删除：" + ", ".join(ok))
+        if fail:
+            lines.append("❌ 未找到：" + ", ".join(fail))
+
+        yield event.plain_result("\n".join(lines))
