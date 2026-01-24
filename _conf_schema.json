@@ -6,7 +6,7 @@
     "default": "1 2 3 4 5 6 7 8 9 10"
   },
   "default_duration": {
-    "description": "注入时长",
+    "description": "默认注入时长",
     "hint": "默认提示词注入时长，单位为秒, 此时间段内，所有 LLM请求的 system_prompt 都会被注入本套提示词， 到达时间后不再注入, 设为 0 表示一直注入",
     "type": "int",
     "slider": {
@@ -30,14 +30,14 @@
   "prompt_templates": {
     "description": "提示词模版",
     "type": "template_list",
-    "hint": "请按照提示词模版自行添加",
+    "hint": "请按照提示词模版自行添加。也可通过命令 [添加提示词 名称 内容] 实时添加，用命令添加时采用默认注入时长、默认注入次数，默认用昵称触发，优先级会自增",
     "templates": {
       "default": {
         "name": "提示词",
         "items": {
           "name": {
             "description": "名称",
-            "hint": "必填！这套提示词起的名称, 用于查询，务必不要使用重复名称",
+            "hint": "必填！这套提示词的名称, 用于查询，务必不要使用重复名称",
             "type": "string",
             "default": "请输入名称"
           },
@@ -60,10 +60,9 @@
           },
           "regexs": {
             "description": "触发正则",
-            "hint": "当用户消息中与正则匹配时, 触发提示词注入, 从而影响LLM的回复。不填则模糊匹配此套提示词的名称来触发",
+            "hint": "当用户消息中与列表中任意一条正则匹配时, 触发提示词注入, 从而影响LLM的回复。不填则模糊匹配此套提示词的名称来触发",
             "type": "list",
             "default": [
-              "请输入正则表达式"
             ]
           },
           "content": {

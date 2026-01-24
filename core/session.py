@@ -38,6 +38,32 @@ class SessionCache:
         """
         return self._cleanup(umo)
 
+    def remove(self, umo: str, names: list[str]) -> list[str]:
+        """
+        从会话中移除指定名称的 prompts
+        返回成功移除的 prompt 名称
+        """
+        prompts = self._data.get(umo)
+        if not prompts:
+            return []
+
+        names_set = set(names)
+        remain: list[PromptItem] = []
+        removed: list[str] = []
+
+        for p in prompts:
+            if p.name in names_set:
+                removed.append(p.name)
+            else:
+                remain.append(p)
+
+        if remain:
+            self._data[umo] = remain
+        else:
+            self._data.pop(umo, None)
+
+        return removed
+
     def activate(self, umo: str, prompts: list[PromptItem]) -> None:
         """
         激活一组 prompt 到会话中（按 priority 管理）。
