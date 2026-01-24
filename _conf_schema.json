@@ -1,7 +1,7 @@
 {
   "prompt_files": {
     "description": "提示词文件",
-    "hint": "请填写提示词文件路径, 支持相对路径和绝对路径，请用/拼接路径",
+    "hint": "请填写提示词文件路径, 支持相对路径和绝对路径，请用/拼接路径。插件初始化时将会加载文件中的提示词到配置中，已加载过的提示词将跳过。插件内置的提示词文件为 data/plugins/astrbot_plugin_worldbook/prompts.yaml, 用户也可按规则自行编写提示词文件",
     "type": "list",
     "default": [
       "data/plugins/astrbot_plugin_worldbook/prompts.yaml"
