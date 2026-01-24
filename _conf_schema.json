@@ -4,7 +4,7 @@
     "hint": "请填写提示词文件路径, 支持相对路径和绝对路径，请用/拼接路径",
     "type": "list",
     "default": [
-      "data/plugins/astrbot_plugin_prompt_inject/prompts.yaml"
+      "data/plugins/astrbot_plugin_worldbook/prompts.yaml"
     ]
   },
   "admin_priority_str": {
