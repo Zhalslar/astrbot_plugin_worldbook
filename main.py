@@ -1,4 +1,5 @@
 # plugin.py
+import asyncio
 import threading
 
 from astrbot.api import logger
@@ -22,11 +23,16 @@ class PromptInjectPlugin(Star):
         self.prompt_mgr = PromptManager(self.cfg)
         self.sessions = SessionCache()
 
-        threading.Thread(
-            target=self.prompt_mgr.load_prompt_files,
-            name="prompt-loader",
-            daemon=True,
-        ).start()
+    async def initialize(self):
+        asyncio.create_task(asyncio.to_thread(self.load_prompt_files))
+
+    def load_prompt_files(self) -> None:
+        """依次加载 cfg.prompt_files 中的路径"""
+        for file in self.cfg.prompt_files:
+            try:
+                self.prompt_mgr.load_prompts_from_file(file, override=False)
+            except Exception as e:
+                logger.error(f"[prompt] load failed: {file} ({e})")
 
     @filter.command("查看提示词")
     async def view_prompt(self, event: AstrMessageEvent, arg: str | None = None):

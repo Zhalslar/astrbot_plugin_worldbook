@@ -3,11 +3,13 @@
     "description": "提示词文件",
     "hint": "请填写提示词文件路径, 支持相对路径和绝对路径，请用/拼接路径",
     "type": "list",
-    "default": []
+    "default": [
+      "data/plugins/astrbot_plugin_prompt_inject/prompts.yaml"
+    ]
   },
   "admin_priority_str": {
     "description": "管理员专用优先级",
-    "hint": "设置管理员专用的优先级，请填写数字，数字之间用空格隔开。处于此优先级下的提示词内，只有管理员能触发",
+    "hint": "设置管理员专用的优先级，请填写数字，数字之间用空格隔开。处于此优先级下的提示词，只有管理员能触发",
     "type": "string",
     "default": "1 2 3 4 5 6 7 8 9 10"
   },
@@ -16,9 +18,9 @@
     "hint": "默认提示词注入时长，单位为秒, 此时间段内，所有 LLM请求的 system_prompt 都会被注入本套提示词， 到达时间后不再注入, 设为 0 表示一直注入",
     "type": "int",
     "slider": {
-      "min": 60,
+      "min": 0,
       "max": 600,
-      "step": 30
+      "step": 10
     },
     "default": 180
   },
@@ -27,7 +29,7 @@
     "hint": "默认注入次数：注入时长内，累计注入的次数达到设置的次数后，当前会话不再注入本套提示词，设为 0 表示不限制次数",
     "type": "int",
     "slider": {
-      "min": 1,
+      "min": 0,
       "max": 10,
       "step": 1
     },
@@ -68,8 +70,7 @@
             "description": "触发正则",
             "hint": "当用户消息中与列表中任意一条正则匹配时, 触发提示词注入, 从而影响LLM的回复。不填则模糊匹配此套提示词的名称来触发",
             "type": "list",
-            "default": [
-            ]
+            "default": []
           },
           "content": {
             "description": "提示词内容",
@@ -82,9 +83,9 @@
             "hint": "提示词注入时长，单位为秒, 此时间段内，所有 LLM请求的 system_prompt 都会被注入本套提示词， 到达时间后不再注入, 设为 0 表示一直注入",
             "type": "int",
             "slider": {
-              "min": 60,
+              "min": 0,
               "max": 600,
-              "step": 30
+              "step": 10
             },
             "default": 180
           },
@@ -93,7 +94,7 @@
             "hint": "注入时长内，累计注入的次数达到设置的次数后，当前会话不再注入本套提示词，设为 0 表示不限制次数",
             "type": "int",
             "slider": {
-              "min": 1,
+              "min": 0,
               "max": 10,
               "step": 1
             },

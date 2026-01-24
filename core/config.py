@@ -117,6 +117,9 @@ class PluginConfig(ConfigNode):
             int(x) for x in self.admin_priority_str.split() if x.isdigit()
         ]
         self.plugin_dir = Path(get_astrbot_plugin_path())
+        self.default_prompt_file = (
+            self.plugin_dir / "astrbot_plugin_prompt_inject" / "prompts.yaml"
+        )
         self._normalize_prompt_files()
 
     def is_admin_priority(self, priority: int) -> bool:

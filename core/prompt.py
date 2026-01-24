@@ -102,11 +102,10 @@ class PromptManager:
         self.prompts: list[PromptItem] = []
         self._register_prompt()
         self._refresh_enabled_cache()
-
-        # 初始化后立即持久化一次（修正 enable / regex 等）
         self.cfg.save_config()
-
         logger.debug(f"已注册提示词: {'、'.join(p.name for p in self.prompts)}")
+
+
 
     def _register_prompt(self) -> None:
         """注册配置中的所有 prompt"""
@@ -389,23 +388,3 @@ class PromptManager:
             except Exception as e:
                 logger.error(f"[prompt] 加载失败: {name} ({e})")
 
-    def load_prompt_files(self) -> None:
-        """
-        依次加载 cfg.prompt_files 中的路径。
-
-        - 每个路径只处理一次，成功后原地移除
-        - 失败的路径保留，供下次重试
-        - 不返回结果，仅记录日志
-        - 会原地修改 cfg.prompt_files
-        """
-        files = self.cfg.prompt_files
-
-        i = 0
-        while i < len(files):
-            path = files[i]
-            try:
-                self.load_prompts_from_file(path, override=False)
-                files.pop(i)
-            except Exception as e:
-                logger.error(f"[prompt] load failed: {path} ({e})")
-                i += 1
