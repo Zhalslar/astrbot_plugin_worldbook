@@ -1,4 +1,6 @@
 # plugin.py
+import threading
+
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.provider import ProviderRequest
@@ -19,6 +21,12 @@ class PromptInjectPlugin(Star):
         self.cfg = PluginConfig(config)
         self.prompt_mgr = PromptManager(self.cfg)
         self.sessions = SessionCache()
+
+        threading.Thread(
+            target=self.prompt_mgr.load_prompt_files,
+            name="prompt-loader",
+            daemon=True,
+        ).start()
 
     @filter.command("查看提示词")
     async def view_prompt(self, event: AstrMessageEvent, arg: str | None = None):
@@ -51,9 +59,13 @@ class PromptInjectPlugin(Star):
         if not content:
             yield event.plain_result("请输入提示词内容")
             return
-        p = self.prompt_mgr.add_prompt(name, content)
-        msg = f"新增提示词：{p.name} \n触发优先级: {p.priority}"
-        yield event.plain_result(msg)
+        try:
+            p = self.prompt_mgr.add_prompt(name=name, content=content)
+            msg = f"新增提示词：{p.name} \n触发优先级: {p.priority}"
+            yield event.plain_result(msg)
+        except Exception as e:
+            logger.error(e)
+            yield event.plain_result(f"提示词添加失败：{e}")
 
     @filter.command("删除提示词")
     async def delete_prompt(self, event: AstrMessageEvent):

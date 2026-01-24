@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import time
+from pathlib import Path
 
 from astrbot.api import logger
 
@@ -80,13 +81,15 @@ class PromptItem(ConfigNode):
     def display(self) -> str:
         """以可读文本形式展示该提示词"""
         status = "启用" if self.enable else "禁用"
-        regex_text = "、".join(self.regexs)
+        regex_text = "      ".join(self.regexs)
         times_text = "不限次数" if self.times == 0 else f"{self.times} 次"
         duration_text = "永久" if self.duration == 0 else f"{self.duration} 秒"
         lines = [
-            f"# 【{self.name}】",
-            f"{status}; 优先级{self.priority}; 触发正则: {regex_text}; 注入时长: {duration_text}; 注入次数: {times_text}",
-            f"{self.content}",
+            f"## 【{self.name}】",
+            f"状态：{status};      优先级: {self.priority};     注入时长: {duration_text};     注入次数: {times_text};     触发正则: {regex_text}",
+            "```",
+            self.content,
+            "```",
         ]
         return "\n".join(lines)
 
@@ -97,19 +100,19 @@ class PromptManager:
     def __init__(self, config: PluginConfig):
         self.cfg = config
         self.prompts: list[PromptItem] = []
-
         self._register_prompt()
         self._refresh_enabled_cache()
 
         # 初始化后立即持久化一次（修正 enable / regex 等）
         self.cfg.save_config()
 
+        logger.debug(f"已注册提示词: {'、'.join(p.name for p in self.prompts)}")
+
     def _register_prompt(self) -> None:
         """注册配置中的所有 prompt"""
         for item in self.cfg.prompt_templates:
             prompt = PromptItem(item)
             self.prompts.append(prompt)
-            logger.debug(f"已注册 Prompt: {prompt.name}, 参数: {prompt.raw_data()}")
 
     def _refresh_enabled_cache(self) -> None:
         """刷新启用 prompt 缓存（内部使用）"""
@@ -201,22 +204,56 @@ class PromptManager:
 
     # ================= CRUD 接口 =================
 
-    def add_prompt(self, name: str, content: str) -> PromptItem:
-        """新增一个 prompt（data 为配置 dict，自动处理 priority）"""
-        data = {
-            "__template_key": "default",
-            "name": name,
-            "enable": True,
-            "priority": self._next_priority(),
-            "regexs": [],
-            "content": content,
-            "duration": self.cfg.default_duration,
-            "times": self.cfg.default_times,
+    def add_prompt(
+        self,
+        data: dict | None = None,
+        *,
+        name: str | None = None,
+        content: str | None = None,
+        override: bool = False,
+    ) -> PromptItem:
+        """
+        新增一个 prompt
+
+        必填：
+            - name: str
+            - content: str
+        其余字段自动补全
+        """
+        if data is None:
+            data = {}
+
+        if name is not None:
+            data["name"] = name
+        if content is not None:
+            data["content"] = content
+
+        if not data.get("name"):
+            raise ValueError("add_prompt 缺少必填字段: name")
+        if not data.get("content"):
+            raise ValueError("add_prompt 缺少必填字段: content")
+
+        prompt_name = data["name"]
+        existing = self.get_prompt(prompt_name)
+        if existing:
+            if not override:
+                raise ValueError(f"Prompt 已存在: {prompt_name}")
+            self.remove_prompts([prompt_name])
+
+        full_data = {
+            "__template_key": data.get("__template_key", "default"),
+            "name": data["name"],
+            "enable": data.get("enable", True),
+            "priority": data.get("priority", self._next_priority()),
+            "regexs": data.get("regexs", []),
+            "content": data["content"],
+            "duration": data.get("duration", self.cfg.default_duration),
+            "times": data.get("times", self.cfg.default_times),
         }
 
-        prompt = PromptItem(data)
+        prompt = PromptItem(full_data)
         self.prompts.append(prompt)
-        self.cfg.prompt_templates.append(data)
+        self.cfg.prompt_templates.append(full_data)
 
         self._refresh_enabled_cache()
         self.cfg.save_config()
@@ -277,3 +314,98 @@ class PromptManager:
                     break
 
         return matched
+
+    # ================= 读取文件 =================
+
+    def _load_prompt_file(self, path: Path):
+        suffix = path.suffix.lower()
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                if suffix in {".yaml", ".yml"}:
+                    import yaml
+
+                    return yaml.safe_load(f)
+
+                if suffix == ".json":
+                    import json
+
+                    return json.load(f)
+        except Exception as e:
+            raise ValueError(f"读取 Prompt 文件失败: {e}")
+
+    def load_prompts_from_file(
+        self,
+        path: str,
+        *,
+        override: bool = False,
+    ) -> None:
+        """
+        从文件中加载 prompt 列表
+        支持 JSON / YAML
+        仅即时日志，不汇总
+        """
+
+        file_path = Path(path)
+        if not file_path.exists():
+            logger.error(f"[prompt] 文件不存在: {file_path}")
+            return
+
+        try:
+            data = self._load_prompt_file(file_path)
+        except Exception as e:
+            logger.error(f"[prompt] 读取提示词文件失败: {file_path} ({e})")
+            return
+
+        # 兼容两种结构：list[dict] 和 {prompts: [...]}
+        if isinstance(data, dict) and "prompts" in data:
+            data = data["prompts"]
+
+        if not isinstance(data, list):
+            logger.error(
+                f"[prompt] 文件格式错误: {file_path}，必须是 list[dict] 或 {{prompts: [...]}}"
+            )
+            return
+
+        for item in data:
+            if not isinstance(item, dict):
+                logger.warning(f"[prompt] 跳过非法项: {item}")
+                continue
+
+            name = item.get("name")
+            content = item.get("content")
+
+            if not name or not content:
+                logger.warning(f"[prompt] 跳过缺少字段的 Prompt: {name or '<unknown>'}")
+                continue
+
+            existing = self.get_prompt(name)
+            if existing and not override:
+                logger.warning(f"[prompt] 已存在，跳过: {name}")
+                continue
+
+            try:
+                self.add_prompt(item, override=override)
+                logger.debug(f"[prompt] 已加载: {name}")
+            except Exception as e:
+                logger.error(f"[prompt] 加载失败: {name} ({e})")
+
+    def load_prompt_files(self) -> None:
+        """
+        依次加载 cfg.prompt_files 中的路径。
+
+        - 每个路径只处理一次，成功后原地移除
+        - 失败的路径保留，供下次重试
+        - 不返回结果，仅记录日志
+        - 会原地修改 cfg.prompt_files
+        """
+        files = self.cfg.prompt_files
+
+        i = 0
+        while i < len(files):
+            path = files[i]
+            try:
+                self.load_prompts_from_file(path, override=False)
+                files.pop(i)
+            except Exception as e:
+                logger.error(f"[prompt] load failed: {path} ({e})")
+                i += 1

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, MutableMapping
+from pathlib import Path
 from types import MappingProxyType, UnionType
 from typing import Any, Union, get_args, get_origin, get_type_hints
 
 from astrbot.api import logger
 from astrbot.core.config.astrbot_config import AstrBotConfig
+from astrbot.core.utils.astrbot_path import get_astrbot_plugin_path
 
 
 class ConfigNode:
@@ -103,9 +105,10 @@ class ConfigNode:
 
 
 class PluginConfig(ConfigNode):
+    prompt_files: list[str]
+    admin_priority_str: str
     default_duration: int
     default_times: int
-    admin_priority_str: str
     prompt_templates: list[dict[str, Any]]
 
     def __init__(self, config: AstrBotConfig):
@@ -113,5 +116,38 @@ class PluginConfig(ConfigNode):
         self.admin_priority = [
             int(x) for x in self.admin_priority_str.split() if x.isdigit()
         ]
+        self.plugin_dir = Path(get_astrbot_plugin_path())
+        self._normalize_prompt_files()
+
     def is_admin_priority(self, priority: int) -> bool:
         return priority in self.admin_priority
+
+    def _normalize_prompt_files(self) -> None:
+        files = self.prompt_files
+
+        i = 0
+        while i < len(files):
+            raw = files[i]
+            try:
+                path = Path(raw).resolve()
+                if not path.exists():
+                    logger.warning(f"[config] prompt_files 不存在: {path}")
+                    files.pop(i)
+                    continue
+
+                if not path.is_file():
+                    logger.warning(f"[config] prompt_files 不是文件: {path}")
+                    files.pop(i)
+                    continue
+
+                if path.suffix.lower() not in {".json", ".yaml", ".yml"}:
+                    logger.warning(
+                        f"[config] prompt_files 后缀不常见 ({path.suffix}): {path}"
+                    )
+
+                files[i] = str(path)
+                i += 1
+
+            except Exception as e:
+                logger.warning(f"[config] 处理 prompt_files 失败: {raw} ({e})")
+                files.pop(i)

@@ -1,4 +1,10 @@
 {
+  "prompt_files": {
+    "description": "提示词文件",
+    "hint": "请填写提示词文件路径, 支持相对路径和绝对路径，请用/拼接路径",
+    "type": "list",
+    "default": []
+  },
   "admin_priority_str": {
     "description": "管理员专用优先级",
     "hint": "设置管理员专用的优先级，请填写数字，数字之间用空格隔开。处于此优先级下的提示词内，只有管理员能触发",
