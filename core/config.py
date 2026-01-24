@@ -118,7 +118,7 @@ class PluginConfig(ConfigNode):
         ]
         self.plugin_dir = Path(get_astrbot_plugin_path())
         self.default_prompt_file = (
-            self.plugin_dir / "astrbot_plugin_prompt_inject" / "prompts.yaml"
+            self.plugin_dir / "astrbot_plugin_worldbook" / "prompts.yaml"
         )
         self._normalize_prompt_files()
 

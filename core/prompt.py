@@ -85,8 +85,8 @@ class PromptItem(ConfigNode):
         times_text = "不限次数" if self.times == 0 else f"{self.times} 次"
         duration_text = "永久" if self.duration == 0 else f"{self.duration} 秒"
         lines = [
-            f"## 【{self.name}】",
-            f"状态：{status};      优先级: {self.priority};     注入时长: {duration_text};     注入次数: {times_text};     触发正则: {regex_text}",
+            f"### 【{self.name}】",
+            f"状态： {status};      优先级:  {self.priority};     注入时长:  {duration_text};     注入次数: {times_text};     触发正则:   {regex_text}",
             "```",
             self.content,
             "```",

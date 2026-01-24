@@ -1,10 +1,10 @@
 <div align="center">
 
-![:name](https://count.getloli.com/@astrbot_plugin_prompt_inject?name=astrbot_plugin_prompt_inject&theme=minecraft&padding=6&offset=0&align=top&scale=1&pixelated=1&darkmode=auto)
+![:name](https://count.getloli.com/@astrbot_plugin_worldbook?name=astrbot_plugin_worldbook&theme=minecraft&padding=6&offset=0&align=top&scale=1&pixelated=1&darkmode=auto)
 
-# astrbot_plugin_prompt_inject
+# astrbot_plugin_worldbook
 
-_✨ 提示词注入器 ✨_  
+_✨ 世界书插件 ✨_  
 
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
@@ -15,27 +15,39 @@ _✨ 提示词注入器 ✨_
 
 ## 🤝 介绍
 
-这是一个 **基于关键词 / 正则触发的提示词注入插件**。
+这是一个 **基于关键词 / 正则触发的 system_prompt 注入插件**，用于构建和管理 AI 的「**世界书（World Book）**」规则。
 
-当用户发送的消息 **命中你配置的正则规则或提示词名称** 时，插件会在一段时间内，把对应的提示词自动追加到 LLM 的 `system_prompt` 中，从而影响 AI 的回答行为、风格或规则。
+在本插件中，**每一套提示词都可以被视为一页“世界书”内容**。  
+当用户发送的消息 **命中你配置的正则规则或提示词名称** 时，插件会在一段时间内，将对应内容自动注入到 LLM 的 `system_prompt` 中，并在会话层面持续生效，从而**稳定、可控地影响 AI 的行为、风格与规则边界**。
 
-插件支持：
-
-- 多提示词同时生效
-- 按优先级排序与覆盖
-- 会话级隔离（不同群 / 私聊互不影响）
-- 管理员专用提示词
-- 按时间 / 次数自动失效
-- 手动精确清除单个或全部提示词
-
-**常见用途：**
-
-- 临时切换 AI 的说话风格（严肃 / 可爱 / 专业）
-- 在特定话题期间强制加入规则或背景设定
-- 管理员触发特殊模式（教学 / 审核 / RP）
-- 群聊中通过关键词自动启用“上下文规则”
+不同于一次性的对话提示，本插件作用于 **system_prompt 层级**，更接近“世界观设定”“行为约束”或“系统规则”，非常适合用于构建可复用、可组合的 AI 行为体系（即世界书系统）。
 
 ---
+
+### ✨ 插件特性
+
+- 支持多套「世界书」规则同时生效  
+- 基于优先级的规则排序与覆盖机制  
+- 会话级隔离（不同群聊 / 私聊互不影响）  
+- 支持管理员专用世界书规则  
+- 支持按时间 / 次数自动失效的临时规则  
+- 支持手动精确清除单个或全部已生效规则  
+
+---
+
+### 💡 常见用途
+
+- 临时切换 AI 的说话风格（严肃 / 可爱 / 专业）
+- 在特定话题期间注入世界观、背景或行为规则
+- 由管理员触发的特殊模式（教学 / 审核 / RP）
+- 群聊中通过关键词自动启用上下文级「世界书规则」
+
+---
+
+> **一句话理解：**  
+> 你可以把这个插件理解为 ——  
+> **一个将「世界书」动态写入 `system_prompt` 的规则引擎。**
+
 
 ## 🧠 工作流程（简化说明）
 
@@ -53,7 +65,7 @@ _✨ 提示词注入器 ✨_
 
 ## 📦 安装
 
-在 AstrBot 插件市场搜索 **astrbot_plugin_prompt_inject**，点击安装即可。
+在 AstrBot 插件市场搜索 **astrbot_plugin_worldbook**，点击安装即可。
 
 ---
 

@@ -1,6 +1,5 @@
 # plugin.py
 import asyncio
-import threading
 
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, filter
@@ -14,8 +13,7 @@ from .core.prompt import PromptManager
 from .core.session import SessionCache
 
 
-class PromptInjectPlugin(Star):
-    """提示词注入插件"""
+class WorldBookPlugin(Star):
 
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
