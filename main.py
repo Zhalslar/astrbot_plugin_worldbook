@@ -30,15 +30,9 @@ class WorldBookPlugin(Star):
         register_builtin(self.wildcards)
 
     async def initialize(self):
-        asyncio.create_task(asyncio.to_thread(self.load_lorefiles))
+        """加载插件时触发"""
+        await self.lorebook.initialize()
 
-    def load_lorefiles(self) -> None:
-        """依次加载 cfg.lorefiles 中的路径"""
-        for file in self.cfg.lorefiles:
-            try:
-                self.lorebook.load_entry_from_lorefile(file, override=False)
-            except Exception as e:
-                logger.error(f"[entry] load failed: {file} ({e})")
 
     # ================= 全局态命令 =================
 

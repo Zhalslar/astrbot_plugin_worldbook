@@ -1,6 +1,7 @@
 # core/entry.py
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from astrbot.api import logger
@@ -18,8 +19,11 @@ class Lorebook:
     def __init__(self, config: PluginConfig):
         self.cfg = config
         self.entries: list[LoreEntry] = []
+
+    async def initialize(self):
         self._register_entry()
         self._refresh_enabled_cache()
+        asyncio.create_task(asyncio.to_thread(self._load_lorefiles))
         self.cfg.save_config()
         logger.debug(f"已注册条目: {'、'.join(p.name for p in self.entries)}")
 
@@ -28,6 +32,14 @@ class Lorebook:
         for item in self.cfg.entry_storage:
             entry = LoreEntry(item)
             self.entries.append(entry)
+
+    def _load_lorefiles(self) -> None:
+        """依次加载 cfg.lorefiles 中的路径"""
+        for file in self.cfg.lorefiles:
+            try:
+                self.load_entry_from_lorefile(file, override=False)
+            except Exception as e:
+                logger.error(f"[entry] load failed: {file} ({e})")
 
     def _refresh_enabled_cache(self) -> None:
         """刷新启用条目缓存（内部使用）"""
@@ -235,24 +247,49 @@ class Lorebook:
             logger.error(f"[lorebook] 加载失败: {file_path} ({e})")
             return
 
+        total = 0
+        loaded = 0
+        skipped = 0
+        failed = 0
+
+        skipped_names: list[str] = []
+        failed_items: list[tuple[str, str]] = []
+
         for item in raw_entries:
+            total += 1
             name = item.get("name")
             content = item.get("content")
 
             if not name or not content:
-                logger.warning(f"[lorebook] 跳过缺少字段的条目: {name or '<unknown>'}")
+                skipped += 1
+                skipped_names.append(name or "<unknown>")
                 continue
 
             existing = self.get_entry(name)
             if existing and not override:
-                logger.debug(f"[lorebook] 已存在，跳过: {name}")
+                skipped += 1
+                skipped_names.append(name)
                 continue
 
             try:
                 self.add_entry(item, override=override)
-                logger.debug(f"[lorebook] 条目已加载: {name}")
+                loaded += 1
             except Exception as e:
-                logger.error(f"[lorebook] 条目加载失败: {name} ({e})")
+                failed += 1
+                failed_items.append((name, str(e)))
+
+        # ===== 汇总日志（只打一条 info）=====
+        logger.info(
+            f"[lorebook] 加载完成: 总数={total}, 成功={loaded}, 跳过={skipped}, 失败={failed}"
+        )
+
+        # ===== 详细信息仅在 debug 级别 =====
+        if skipped_names:
+            logger.debug(f"[lorebook] 跳过的条目: {', '.join(skipped_names)}")
+
+        if failed_items:
+            for name, err in failed_items:
+                logger.debug(f"[lorebook] 条目加载失败: {name} ({err})")
 
     def export_lorefile(self, path: str) -> None:
         """
