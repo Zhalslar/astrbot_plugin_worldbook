@@ -7,78 +7,92 @@ from astrbot.api.provider import ProviderRequest
 from astrbot.core.config.astrbot_config import AstrBotConfig
 from astrbot.core.star import Star
 from astrbot.core.star.context import Context
+from astrbot.core.star.filter.permission import PermissionType
 
 from .core.config import PluginConfig
-from .core.prompt import PromptManager
+from .core.entry import LoreEntry
+from .core.lorebook import Lorebook
 from .core.session import SessionCache
+from .core.share import LorebookShare
+from .core.wildcard import WildcardResolver, register_builtin
 
 
 class WorldBookPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
+
         self.cfg = PluginConfig(config)
-        self.prompt_mgr = PromptManager(self.cfg)
+        self.lorebook = Lorebook(self.cfg)
+        self.share = LorebookShare(self.lorebook, self.cfg)
         self.sessions = SessionCache()
+        self.wildcards = WildcardResolver()
+
+        register_builtin(self.wildcards)
 
     async def initialize(self):
-        asyncio.create_task(asyncio.to_thread(self.load_prompt_files))
+        asyncio.create_task(asyncio.to_thread(self.load_lorefiles))
 
-    def load_prompt_files(self) -> None:
-        """依次加载 cfg.prompt_files 中的路径"""
-        for file in self.cfg.prompt_files:
+    def load_lorefiles(self) -> None:
+        """依次加载 cfg.lorefiles 中的路径"""
+        for file in self.cfg.lorefiles:
             try:
-                self.prompt_mgr.load_prompts_from_file(file, override=False)
+                self.lorebook.load_entry_from_lorefile(file, override=False)
             except Exception as e:
-                logger.error(f"[prompt] load failed: {file} ({e})")
+                logger.error(f"[entry] load failed: {file} ({e})")
 
-    @filter.command("查看提示词")
-    async def view_prompt(self, event: AstrMessageEvent, arg: str | None = None):
-        """查看提示词（全部 / 启用 / 禁用 / 单个）"""
+    # ================= 全局态命令 =================
+
+    @filter.permission_type(PermissionType.ADMIN)
+    @filter.command("查看条目")
+    async def view_entry(self, event: AstrMessageEvent, arg: str | None = None):
+        """查看条目（全部 / 启用 / 禁用 / 单个）"""
         if arg == "启用":
-            prompts = self.prompt_mgr.list_enabled_prompts()
+            entries = self.lorebook.list_enabled_entries()
         elif arg == "禁用":
-            prompts = self.prompt_mgr.list_disabled_prompts()
+            entries = self.lorebook.list_disabled_entries()
         elif arg:
-            prompt = self.prompt_mgr.get_prompt(arg)
-            prompts = [prompt] if prompt else []
+            entry = self.lorebook.get_entry(arg)
+            entries = [entry] if entry else []
         else:
-            prompts = self.prompt_mgr.list_prompts()
+            entries = self.lorebook.list_entries()
 
-        if not prompts:
-            yield event.plain_result("未找到任何提示词")
+        if not entries:
+            yield event.plain_result("未找到任何条目")
             return
 
-        prompts = sorted(prompts, key=lambda p: p.priority)
-        blocks = [p.display() for _, p in enumerate(prompts, start=1)]
+        entries = sorted(entries, key=lambda e: e.priority)
+        blocks = [e.display() for _, e in enumerate(entries, start=1)]
         yield event.plain_result("\n\n\n\n".join(blocks))
 
-    @filter.command("添加提示词")
-    async def add_prompt(self, event: AstrMessageEvent, name: str):
-        """添加一个简单提示词（name + 当前消息内容）"""
+    @filter.permission_type(PermissionType.ADMIN)
+    @filter.command("添加条目")
+    async def add_entry(self, event: AstrMessageEvent, name: str):
+        """添加条目 <名称> <内容>"""
         if len(name) > 10:
-            yield event.plain_result("提示词名称过长")
+            yield event.plain_result("条目名称过长")
             return
-        content = event.message_str.removeprefix(f"添加提示词 {name}").strip()
+        content = event.message_str.removeprefix(f"添加条目 {name}").strip()
         if not content:
-            yield event.plain_result("请输入提示词内容")
+            yield event.plain_result("请输入条目内容")
             return
         try:
-            p = self.prompt_mgr.add_prompt(name=name, content=content)
-            msg = f"新增提示词：{p.name} \n触发优先级: {p.priority}"
+            entry = self.lorebook.add_entry(name=name, content=content)
+            msg = f"新增条目：{entry.name} \n触发优先级: {entry.priority}"
             yield event.plain_result(msg)
         except Exception as e:
             logger.error(e)
-            yield event.plain_result(f"提示词添加失败：{e}")
+            yield event.plain_result(f"条目添加失败：{e}")
 
-    @filter.command("删除提示词")
-    async def delete_prompt(self, event: AstrMessageEvent):
-        """按 name 删除提示词（支持多个）"""
+    @filter.permission_type(PermissionType.ADMIN)
+    @filter.command("删除条目")
+    async def delete_entry(self, event: AstrMessageEvent):
+        """删除条目 <名称1> <名称2>"""
         names = event.message_str.split()[1:]
         if not names:
-            yield event.plain_result("请指定要删除的提示词名称")
+            yield event.plain_result("请指定要删除的条目名称")
             return
 
-        ok, fail = self.prompt_mgr.remove_prompts(names)
+        ok, fail = self.lorebook.remove_entries(names)
 
         lines = []
         if ok:
@@ -88,121 +102,260 @@ class WorldBookPlugin(Star):
 
         yield event.plain_result("\n".join(lines))
 
-    @filter.command("启用提示词")
-    async def enable_prompt(self, event: AstrMessageEvent):
-        """按 name 启用提示词（支持多个）"""
-        names = event.message_str.split()[1:]
-        if not names:
-            yield event.plain_result("请指定要启用的提示词名称")
+    @filter.permission_type(PermissionType.ADMIN)
+    @filter.command("设置触发词")
+    async def set_keywords(self, event: AstrMessageEvent):
+        """设置触发词 <关键词|正则表达式>"""
+        parts = event.message_str.split()
+        if len(parts) < 3:
+            yield event.plain_result("用法：设置触发词 名字 规则1 [规则2 ...]")
             return
 
-        ok, fail = self.prompt_mgr.enable_prompts(names)
+        name = parts[1]
+        keywords = parts[2:]
 
-        lines = []
-        if ok:
-            lines.append("已启用：" + ", ".join(ok))
-        if fail:
-            lines.append("未找到：" + ", ".join(fail))
-
-        yield event.plain_result("\n".join(lines))
-
-    @filter.command("禁用提示词")
-    async def disable_prompt(self, event: AstrMessageEvent):
-        """按 name 禁用提示词（支持多个）"""
-        names = event.message_str.split()[1:]
-        if not names:
-            yield event.plain_result("请指定要禁用的提示词名称")
+        ok = self.lorebook.update_keywords(name, keywords)
+        if not ok:
+            yield event.plain_result(f"未找到条目：{name}")
             return
 
-        ok, fail = self.prompt_mgr.disable_prompts(names)
+        yield event.plain_result(f"条目【{name}】触发词已更新，共 {len(keywords)} 条")
 
-        lines = []
-        if ok:
-            lines.append("已禁用：" + ", ".join(ok))
-        if fail:
-            lines.append("未找到：" + ", ".join(fail))
+    @filter.permission_type(PermissionType.ADMIN)
+    @filter.command("设置优先级")
+    async def set_priority(self, event: AstrMessageEvent):
+        """设置优先级 <数字>"""
+        parts = event.message_str.split()
+        if len(parts) != 3:
+            yield event.plain_result("用法：设置优先级 名字 数字")
+            return
 
-        yield event.plain_result("\n".join(lines))
+        name = parts[1]
+        try:
+            priority = int(parts[2])
+        except ValueError:
+            yield event.plain_result("优先级必须是整数")
+            return
 
-    @filter.command("提示词状态")
-    async def on_command(self, event: AstrMessageEvent):
-        """查看当前会话的提示词状态"""
+        ok = self.lorebook.update_priority(name, priority)
+        if not ok:
+            yield event.plain_result(f"未找到条目：{name}")
+            return
+
+        yield event.plain_result(f"条目【{name}】优先级已设置为 {priority}")
+
+    # ================= 会话态命令 =================
+
+    @filter.permission_type(PermissionType.ADMIN)
+    @filter.command("启用条目")
+    async def enable_entry(self, event: AstrMessageEvent):
+        """启用条目 <名称1> <名称2>"""
+        names = event.message_str.split()[1:]
+        if not names:
+            yield event.plain_result("用法：启用条目 名称1 [名称2 ...]")
+            return
+
         umo = event.unified_msg_origin
-        prompts = self.sessions.get(umo)
-        if not prompts:
-            yield event.plain_result("当前会话未激活任何提示词")
+        ok, fail = [], []
+
+        for name in names:
+            if not self.lorebook.get_entry(name):
+                fail.append(name)
+                continue
+            self.lorebook.add_scope_to_entry(name, umo)
+            ok.append(name)
+
+        lines = []
+        if ok:
+            lines.append(f"当前会话已启用：{', '.join(ok)}")
+        if fail:
+            lines.append("未找到：" + ", ".join(fail))
+        yield event.plain_result("\n".join(lines))
+
+    @filter.permission_type(PermissionType.ADMIN)
+    @filter.command("禁用条目")
+    async def disable_entry(self, event: AstrMessageEvent):
+        """禁用条目 <名称1> <名称2>"""
+        names = event.message_str.split()[1:]
+        if not names:
+            yield event.plain_result("用法：禁用条目 名称1 [名称2 ...]")
             return
 
-        lines = ["【提示词状态】"]
-        for idx, p in enumerate(prompts, start=1):
-            if p.times == 0:
+        umo = event.unified_msg_origin
+        ok, fail = [], []
+
+        for name in names:
+            if not self.lorebook.get_entry(name):
+                fail.append(name)
+                continue
+            self.lorebook.remove_scope_from_entry(name, umo)
+            ok.append(name)
+
+        # 同时把当前会话里已激活的也清掉，避免“禁用了但本次还在注入”
+        self.sessions.remove(umo, ok)
+
+        lines = []
+        if ok:
+            lines.append(f"当前会话已禁用：{', '.join(ok)}")
+        if fail:
+            lines.append("未找到：" + ", ".join(fail))
+        yield event.plain_result("\n".join(lines))
+
+    @filter.command("条目状态")
+    async def on_command(self, event: AstrMessageEvent):
+        """查看当前会话的条目状态"""
+        umo = event.unified_msg_origin
+        entries = self.sessions.get(umo)
+        if not entries:
+            yield event.plain_result("当前会话未激活任何条目")
+            return
+
+        lines = ["【条目状态】"]
+        for idx, e in enumerate(entries, start=1):
+            if e.times == 0:
                 times_text = "不限次数"
             else:
-                times_text = f"{p._inject_count}/{p.times} 次"
+                times_text = f"{e._inject_count}/{e.times} 次"
 
-            time_text = "一直注入" if p.duration == 0 else f"剩余{p.remaining}秒"
+            time_text = "一直注入" if e.duration == 0 else f"剩余{e.remaining}秒"
 
-            lines.append(f"{idx}. {p.name}（{time_text}，{times_text}）")
+            lines.append(f"{idx}. {e.name}（{time_text}，{times_text}）")
 
         yield event.plain_result("\n".join(lines))
 
-    @filter.command("清除提示词")
+    @filter.command("清除条目", alias={"清空条目"})
     async def stop_inject(self, event: AstrMessageEvent):
-        """清除当前会话的某个提示词，默认清除全部"""
+        """清除当前会话的某个条目，默认清除全部"""
         umo = event.unified_msg_origin
         parts = event.message_str.split()
         names = parts[1:]
 
         if not names:
             self.sessions.deactivate(umo)
-            yield event.plain_result("已清除当前会话的所有提示词")
+            yield event.plain_result("已清除当前会话的所有条目")
             return
 
         removed = self.sessions.remove(umo, names)
 
         if not removed:
-            yield event.plain_result("当前会话中未找到指定的提示词")
+            yield event.plain_result("当前会话中未找到指定的条目")
             return
 
-        msg = f"已清除提示词：{', '.join(removed)}"
+        msg = f"已清除条目：{', '.join(removed)}"
         yield event.plain_result(msg)
+
+    # ================= 文件流通 =================
+
+    @filter.permission_type(PermissionType.ADMIN)
+    @filter.command("导出世界书")
+    async def upload_lorebook(self, event: AstrMessageEvent, name: str | None = None):
+        async for msg in self.share.upload_lorebook(event, name):
+            yield msg
+
+    @filter.permission_type(PermissionType.ADMIN)
+    @filter.command("导入世界书")
+    async def import_lorebook(self, event: AstrMessageEvent):
+        async for msg in self.share.download_lorebook(event, override=False):
+            yield msg
+
+    # ================= 核心机制 =================
 
     @filter.on_llm_request()
     async def on_llm_request(self, event: AstrMessageEvent, req: ProviderRequest):
-        """监听 LLM 请求，注入提示词"""
-        umo = event.unified_msg_origin
+        """监听 LLM 请求，注入条目"""
         msg = event.message_str
         if not msg:
             return
 
-        # ------- 激活阶段 --------
+        umo = event.unified_msg_origin
 
-        if prompts := self.prompt_mgr.match_prompts(msg):
-            if not event.is_admin():
-                prompts = [
-                    p for p in prompts if not self.cfg.is_admin_priority(p.priority)
-                ]
-            if prompts:
-                self.sessions.activate(umo, prompts)
-                names = ", ".join(p.name for p in prompts)
-                logger.debug(f"{umo} 激活 Prompt: {names}")
+        # 激活阶段
+        self._activate_entries(event, msg, umo)
 
-        # ------- 注入阶段 --------
+        # 注入阶段
+        self._inject_entries(event, req, umo)
 
-        if prompts := self.sessions.get(umo):
-            sections = ["## 临时附加提示词\n"]
+    def _activate_entries(self, event: AstrMessageEvent, msg: str, umo: str) -> None:
+        """根据消息匹配并激活条目"""
 
-            multi = len(prompts) > 1
-            if multi:
-                sections.append("> 注意：多套提示词间若有逻辑冲突，采用优先级较小者\n")
+        entries = self.lorebook.match_entries(msg)
+        if not entries:
+            return
 
-            for p in sorted(prompts, key=lambda x: x.priority):
-                if multi:
-                    title = f"### 【{p.name}】模式已激活，优先级为 {p.priority}："
-                else:
-                    title = f"### 【{p.name}】模式已激活："
+        gid = event.get_group_id()
+        uid = event.get_sender_id()
+        is_admin = event.is_admin()
 
-                sections.append(f"{title}\n{p.content}")
-                p._inject_count += 1
+        # 作用域过滤
+        entries = [
+            e
+            for e in entries
+            if e.allow_scope(
+                user_id=uid,
+                group_id=gid,
+                session_id=umo,
+                is_admin=is_admin,
+            )
+            and e.allow_probability()
+        ]
 
-            req.system_prompt += "\n".join(sections)
+        if not entries:
+            return
+
+        self.sessions.activate(umo, entries)
+        logger.debug(f"{umo} 激活条目: {', '.join(e.name for e in entries)}")
+
+    def _inject_entries(
+        self, event: AstrMessageEvent, req: ProviderRequest, umo: str
+    ) -> None:
+        """将当前会话中已激活的条目注入 system_prompt"""
+
+        entries = self.sessions.get(umo)
+        if not entries:
+            return
+
+        entries = self._prepare_entries_for_injection(entries)
+        if not entries:
+            return
+
+        ctx = {
+            "user_id": event.get_sender_id(),
+            "user_name": event.get_sender_name(),
+        }
+
+        sections = self._render_entries(entries, ctx)
+        req.system_prompt += "\n".join(sections)
+
+    def _prepare_entries_for_injection(self, entries: list[LoreEntry]) -> list:
+        """
+        按优先级排序并裁剪条目：
+        - priority 数字越小，优先级越高
+        - system_prompt 中越靠前，约束力越强
+        """
+
+        entries = sorted(entries, key=lambda x: x.priority)
+
+        max_count = self.cfg.max_inject_count
+        if max_count > 0 and len(entries) > max_count:
+            dropped = entries[max_count:]
+            logger.debug(
+                f"当前会话共{len(entries)}个条目激活中"
+                f"，超出最大允许的注入数 {max_count}"
+                f"已自动丢弃 [{', '.join(e.name for e in dropped)}]"
+            )
+            entries = entries[:max_count]
+
+        return entries
+
+    def _render_entries(self, entries: list[LoreEntry], ctx: dict) -> list[str]:
+        """渲染条目内容为 system_prompt 片段"""
+
+        sections: list[str] = []
+
+        for e in entries:
+            title = f"### [{e.name}]"
+            rendered = self.wildcards.render(e.content, ctx)
+            sections.append(f"{title}\n{rendered}")
+            e._inject_count += 1
+
+        return sections
