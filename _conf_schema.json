@@ -1,7 +1,7 @@
 {
   "lorefiles": {
     "description": "世界书文件",
-    "hint": "请填写世界书文件路径, 支持相对路径和绝对路径，请用/拼接路径。插件初始化时将会加载文件中的世界书条目到配置中，已加载过的将跳过。插件内置的提示词文件为 data/plugins/astrbot_plugin_worldbook/default_lorebook.yaml, 用户也可按规则自行编写提示词文件",
+    "hint": "用于批量加载世界书条目的文件路径。支持相对路径和绝对路径，路径请使用 / 分隔。插件启动时会自动加载这些文件中的条目，已存在的条目会自动跳过。一般用户无需修改，默认已内置示例世界书文件。",
     "type": "list",
     "default": [
       "data/plugins/astrbot_plugin_worldbook/default_lorebook.yaml"
@@ -9,7 +9,7 @@
   },
   "export_format": {
     "description": "导出格式",
-    "hint": "本插件支持用命令 [导出世界书] 导出当前配置的所有条目，格式为 json 或 yaml ; 同时支持用命令 [导出世界书] 直接导入别人的世界书文件",
+    "hint": "使用命令【导出世界书】时生成的文件格式，可选 json 或 yaml。仅在导出或分享世界书时需要关注，日常使用可保持默认。",
     "type": "string",
     "options": [
       "json",
@@ -19,7 +19,7 @@
   },
   "default_duration": {
     "description": "默认注入时长",
-    "hint": "提示词的默认注入时长，单位为秒, 此时间段内，所有 LLM请求的 system_prompt 都会被注入该条目的提示词， 到达时间后不再注入, 设为 0 表示一直注入",
+    "hint": "新建条目时默认的生效时长（单位：秒）。例如 180 表示触发后 3 分钟内持续生效；设为 0 表示一直生效。一般保持默认即可。",
     "type": "int",
     "slider": {
       "min": 0,
@@ -30,7 +30,7 @@
   },
   "default_times": {
     "description": "默认注入次数",
-    "hint": "提示词的默认注入次数：注入时长内，累计注入的次数达到设置的次数后，当前会话不再注入该条目的提示词，设为 0 表示不限制次数",
+    "hint": "新建条目时默认的生效次数上限。在生效时长内，注入次数达到该值后将不再生效；设为 0 表示不限次数。一般保持默认即可。",
     "type": "int",
     "slider": {
       "min": 0,
@@ -41,7 +41,7 @@
   },
   "max_inject_count": {
     "description": "最大注入数",
-    "hint": "每次 LLM 请求时，最多允许注入多少个条目的提示词，设为 0 表示不限制",
+    "hint": "每次模型请求中，最多允许同时生效的条目数量。用于防止注入内容过多导致效果混乱。设为 0 表示不限制。普通使用建议保持默认。",
     "type": "int",
     "slider": {
       "min": 0,
@@ -53,26 +53,26 @@
   "entry_storage": {
     "description": "世界书条目",
     "type": "template_list",
-    "hint": "请按照世界书条目模版自行添加。也可通过命令 [添加条目 名称 内容] 实时添加，用命令添加时采用默认注入时长、默认注入次数，默认用昵称触发，优先级会自增",
+    "hint": "世界书的核心配置区域。新手只需填写【名称】和【提示词】即可正常使用，其余选项可全部保持默认。也可通过命令【添加条目 名称 内容】快速添加。",
     "templates": {
       "default": {
-        "name": "条目",
+        "name": "通用条目",
         "items": {
           "name": {
             "description": "名称",
-            "hint": "必填！条目的名称用于查询，务必不要使用重复名称",
+            "hint": "必填。条目的唯一名称，用于查询和命令操作，请避免重复。建议简短明确",
             "type": "string",
             "default": "请输入名称"
           },
           "enabled": {
             "description": "启用",
-            "hint": "是否启用此条目",
+            "hint": "是否启用本条目。关闭后本条目不会被触发或生效",
             "type": "bool",
             "default": true
           },
           "priority": {
             "description": "优先级",
-            "hint": "提示词注入优先级，数字越小越优先触发并注入, 优先级相同则激活时覆盖同优先级的提示词",
+            "hint": "条目生效的优先级，数字越小优先级越高。当多个条目同时生效时，优先级高的影响更强",
             "type": "int",
             "slider": {
               "min": 0,
@@ -83,19 +83,19 @@
           },
           "scope": {
             "description": "触发范围",
-            "hint": "提示词注入时, 只有列表中的ID才能触发此套提示词, 支持填用户ID、群聊ID、会话ID, 填“admin”表示管理员, 留空表示所有会话均可触发",
+            "hint": "限制哪些会话、群聊、用户可以触发本条目。留空表示不限制。可填写用户ID、群聊ID、会话ID，或填写 admin 表示仅管理员可触发。",
             "type": "list",
             "default": []
           },
           "keywords": {
-            "description": "触发词",
-            "hint": "支持关键词和正则表达式，当用户消息中与列表中任意关键词或正则表达式匹配时, 激活本条目。不填则自动以条目名称作为触发词",
+            "description": "触发规则",
+            "hint": "限制哪些格式的消息可以触发本条目。消息中 包含这些关键词 或 匹配正则表达式 时触发本条目。留空则默认使用【名称】作为触发词",
             "type": "list",
             "default": []
           },
           "probability": {
             "description": "触发概率",
-            "hint": "满足触发词规则后还要经过概率判断, 0 表示无法触发, 1 表示百分百触发",
+            "hint": "满足触发条件后条目生效的概率。1 表示每次必定生效，0.5 表示约一半概率生效。用于随机事件或彩蛋，一般无需修改",
             "slider": {
               "min": 0,
               "max": 1,
@@ -106,13 +106,13 @@
           },
           "content": {
             "description": "提示词",
-            "hint": "条目触发后，此处的提示词将注入到 LLM请求的 system_prompt 中。写法详见文档",
+            "hint": "条目生效时注入的内容。这里填写你希望模型遵守的规则、设定或背景信息，例如人物性格、世界观说明等",
             "type": "text",
             "default": "请输入提示词"
           },
           "duration": {
             "description": "注入时长",
-            "hint": "提示词注入时长，单位为秒, 此时间段内，所有 LLM请求的 system_prompt 都会被注入本套提示词， 到达时间后不再注入, 设为 0 表示一直注入",
+            "hint": "该条目生效的持续时间（秒）。设为 180 表示触发后 3 分钟内持续生效；设为 0 表示一直生效",
             "type": "int",
             "slider": {
               "min": 0,
@@ -123,7 +123,7 @@
           },
           "times": {
             "description": "注入次数",
-            "hint": "注入时长内，累计注入的次数达到设置的次数后，当前会话不再注入本套提示词，设为 0 表示不限制次数",
+            "hint": "在一次触发周期中最多生效的次数。达到次数后将不再生效；设为 0 表示不限次数",
             "type": "int",
             "slider": {
               "min": 0,
@@ -131,6 +131,168 @@
               "step": 1
             },
             "default": 5
+          }
+        }
+      },
+      "user": {
+        "name": "用户条目",
+        "items": {
+          "name": {
+            "description": "名称（用户名）",
+            "hint": "必填！条目的唯一名称，用于查询和命令操作，请避免重复。建议填用户名",
+            "type": "string",
+            "default": "请输入用户名"
+          },
+          "enabled": {
+            "description": "启用",
+            "hint": "是否启用本条目。关闭后本条目不会被触发或生效",
+            "type": "bool",
+            "default": true
+          },
+          "priority": {
+            "description": "优先级",
+            "hint": "条目生效的优先级，数字越小优先级越高。当多个条目同时生效时，优先级高的影响更强。用户条目建议统一用120",
+            "type": "int",
+            "default": 120,
+            "invisible": true
+          },
+          "scope": {
+            "description": "触发范围（用户ID）",
+            "hint": "必填！ 请填写该用户的QQ等ID, 用来确保只有该用户的消息可以触发本条目",
+            "type": "list",
+            "default": []
+          },
+          "keywords": {
+            "description": "触发规则",
+            "hint": "默认的 .* 表示匹配任意字符, 即该用户的任意消息都可以触发本条目",
+            "type": "list",
+            "default": [
+              ".*"
+            ],
+            "invisible": true
+          },
+          "probability": {
+            "description": "触发概率",
+            "hint": "满足触发条件后条目生效的概率。1 表示每次必定生效，0.5 表示约一半概率生效。用于随机事件或彩蛋，一般无需修改",
+            "slider": {
+              "min": 0,
+              "max": 1,
+              "step": 0.01
+            },
+            "type": "float",
+            "default": 1.0,
+            "invisible": true
+          },
+          "content": {
+            "description": "提示词（用户信息）",
+            "hint": "条目生效时注入的内容。请填写该用户的资料信息、兴趣爱好、人物关系等， 让bot知道和它对话的用户是个什么样的人",
+            "type": "text",
+            "default": "请输入提示词"
+          },
+          "duration": {
+            "description": "注入时长",
+            "hint": "该条目生效的持续时间（秒）。设为 180 表示触发后 3 分钟内持续生效；设为 0 表示一直生效",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 600,
+              "step": 10
+            },
+            "default": 0,
+            "invisible": true
+          },
+          "times": {
+            "description": "注入次数",
+            "hint": "在一次触发周期中最多生效的次数。达到次数后将不再生效；设为 0 表示不限次数",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 10,
+              "step": 1
+            },
+            "default": 0,
+            "invisible": true
+          }
+        }
+      },
+      "group": {
+        "name": "群聊条目",
+        "items": {
+          "name": {
+            "description": "名称（群名）",
+            "hint": "必填！条目的唯一名称，用于查询和命令操作，请避免重复。建议填群名",
+            "type": "string",
+            "default": "请输入用户名"
+          },
+          "enabled": {
+            "description": "启用",
+            "hint": "是否启用本条目。关闭后本条目不会被触发或生效",
+            "type": "bool",
+            "default": true
+          },
+          "priority": {
+            "description": "优先级",
+            "hint": "条目生效的优先级，数字越小优先级越高。当多个条目同时生效时，优先级高的影响更强。群聊条目建议统一用110",
+            "type": "int",
+            "default": 110,
+            "invisible": true
+          },
+          "scope": {
+            "description": "触发范围（群聊ID）",
+            "hint": "必填！ 请填写该群聊的群号, 用来确保只有该群聊的消息可以触发本条目",
+            "type": "list",
+            "default": []
+          },
+          "keywords": {
+            "description": "触发规则",
+            "hint": "默认的 .* 表示匹配任意字符, 即该群聊的任意消息都可以触发本条目",
+            "type": "list",
+            "default": [
+              ".*"
+            ],
+            "invisible": true
+          },
+          "probability": {
+            "description": "触发概率",
+            "hint": "满足触发条件后条目生效的概率。1 表示每次必定生效，0.5 表示约一半概率生效。用于随机事件或彩蛋，一般无需修改",
+            "slider": {
+              "min": 0,
+              "max": 1,
+              "step": 0.01
+            },
+            "type": "float",
+            "default": 1.0,
+            "invisible": true
+          },
+          "content": {
+            "description": "提示词（群聊信息）",
+            "hint": "条目生效时注入的内容。请填写该群聊的资料信息、主要话题等， 让bot知道和它在的群聊是个什么样的群聊",
+            "type": "text",
+            "default": "请输入提示词"
+          },
+          "duration": {
+            "description": "注入时长",
+            "hint": "该条目生效的持续时间（秒）。设为 180 表示触发后 3 分钟内持续生效；设为 0 表示一直生效",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 600,
+              "step": 10
+            },
+            "default": 0,
+            "invisible": true
+          },
+          "times": {
+            "description": "注入次数",
+            "hint": "在一次触发周期中最多生效的次数。达到次数后将不再生效；设为 0 表示不限次数",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 10,
+              "step": 1
+            },
+            "default": 0,
+            "invisible": true
           }
         }
       }

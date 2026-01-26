@@ -33,7 +33,6 @@ class WorldBookPlugin(Star):
         """加载插件时触发"""
         await self.lorebook.initialize()
 
-
     # ================= 全局态命令 =================
 
     @filter.permission_type(PermissionType.ADMIN)
@@ -318,7 +317,7 @@ class WorldBookPlugin(Star):
         }
 
         sections = self._render_entries(entries, ctx)
-        req.system_prompt += "\n".join(sections)
+        req.system_prompt += "\n\n" + "\n\n".join(sections) + "\n\n"
 
     def _prepare_entries_for_injection(self, entries: list[LoreEntry]) -> list:
         """
@@ -347,7 +346,7 @@ class WorldBookPlugin(Star):
         sections: list[str] = []
 
         for e in entries:
-            title = f"### [{e.name}]"
+            title = f"## [{e.name}]"
             rendered = self.wildcards.render(e.content, ctx)
             sections.append(f"{title}\n{rendered}")
             e._inject_count += 1
