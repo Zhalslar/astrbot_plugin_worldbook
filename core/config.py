@@ -108,8 +108,6 @@ class ConfigNode:
 class PluginConfig(ConfigNode):
     lorefiles: list[str]
     export_format: str
-    default_duration: int
-    default_times: int
     max_inject_count: int
     entry_storage: list[dict[str, Any]]
 

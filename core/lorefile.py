@@ -123,15 +123,16 @@ class LoreFile:
     @staticmethod
     def _entry_to_dict(entry: LoreEntry) -> dict[str, Any]:
         """
-        明确字段白名单，避免把运行时状态写进文件
+        LoreEntry -> 标准 lorefile dict（规范协议）
         """
         return {
+            "template": entry.template.value,
             "name": entry.name,
             "enabled": entry.enabled,
             "priority": entry.priority,
             "scope": list(entry.scope),
             "keywords": list(entry.keywords),
-            "probability": getattr(entry, "probability", 1.0),
+            "probability": entry.probability,
             "content": entry.content,
             "duration": entry.duration,
             "times": entry.times,

@@ -8,10 +8,11 @@ import time
 from astrbot.api import logger
 
 from .config import ConfigNode
+from .template import Template
 
 
 class LoreEntry(ConfigNode):
-    __template_key: str
+    __template_key: str | None
     name: str
     enabled: bool
     priority: int
@@ -24,7 +25,7 @@ class LoreEntry(ConfigNode):
 
     def __init__(self, data: dict):
         super().__init__(data)
-
+        self._template = Template.from_data(data)
         self._activated_at: float | None = None
         self._inject_count: int = 0
         self._compiled_patterns: list[re.Pattern] = []
@@ -38,6 +39,10 @@ class LoreEntry(ConfigNode):
                 self._compiled_patterns.append(re.compile(pattern))
             except re.error as e:
                 logger.warning(f"[条目:{self.name}] 正则编译失败: {pattern} ({e})")
+
+    @property
+    def template(self) -> Template:
+        return self._template
 
     @property
     def activated(self) -> bool:

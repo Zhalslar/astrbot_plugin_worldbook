@@ -7,7 +7,7 @@ from pathlib import Path
 from astrbot.api import logger
 
 from .config import PluginConfig
-from .entry import LoreEntry
+from .entry import LoreEntry, Template
 from .lorefile import LoreFile
 
 
@@ -47,19 +47,6 @@ class Lorebook:
             e for e in self.entries if e.enabled
         ]
 
-    def _next_priority(self, avoid_admin: bool = True) -> int:
-        """获取下一个可用的 priority"""
-
-        if not self.entries:
-            priority = 0
-        else:
-            priority = max(p.priority for p in self.entries) + 1
-
-        if not avoid_admin:
-            return priority
-
-        return priority
-
     # ================= 查询接口 =================
 
     def get_entry(self, name: str) -> LoreEntry | None:
@@ -86,6 +73,49 @@ class Lorebook:
         return sorted(self.entries, key=lambda p: p.priority)
 
     # ================= CRUD 接口 =================
+    def _resolve(
+        self,
+        data: dict,
+        defaults: dict,
+        key: str,
+        *,
+        fallback,
+    ):
+        """
+        通用字段解析：
+        用户指定 > 模板默认 > fallback
+        """
+        if key in data:
+            return data[key]
+        if key in defaults:
+            return defaults[key]
+        return fallback
+
+    def _resolve_priority(
+        self,
+        *,
+        data: dict,
+        template: Template,
+    ) -> int:
+        """
+        priority 规则：
+        - 用户显式指定：直接使用
+        - 否则：从模板默认 priority 起点开始自增
+        """
+        # 1. 用户指定（最高优先级）
+        if "priority" in data:
+            return data["priority"]
+
+        # 2. 模板起始 priority（base）
+        base = template.defaults().get("priority", 0)
+
+        # 3. 在现有 entries 中，找 >= base 的最大值
+        candidates = [e.priority for e in self.entries if e.priority >= base]
+
+        if not candidates:
+            return base
+
+        return max(candidates) + 1
 
     def add_entry(
         self,
@@ -99,13 +129,14 @@ class Lorebook:
         新增一个条目
 
         必填：
-            - name: str
-            - content: str
-        其余字段自动补全
+            - name
+            - content
+        其余字段根据 template / 默认规则自动补全
         """
         if data is None:
             data = {}
 
+        # ===== 参数合并（命令 / 代码调用优先）=====
         if name is not None:
             data["name"] = name
         if content is not None:
@@ -117,25 +148,44 @@ class Lorebook:
             raise ValueError("add_entry 缺少必填字段: content")
 
         entry_name = data["name"]
+
+        # ===== 重名处理 =====
         existing = self.get_entry(entry_name)
         if existing:
             if not override:
                 raise ValueError(f"Prompt 已存在: {entry_name}")
             self.remove_entries([entry_name])
 
+        # ===== 模板解析 =====
+        template = Template.from_data(data)
+        defaults = template.defaults()
+
+        # ===== 字段统一解析 =====
+        enabled = self._resolve(data, defaults, "enabled", fallback=True)
+        duration = self._resolve(data, defaults, "duration", fallback=0)
+        times = self._resolve(data, defaults, "times", fallback=0)
+        keywords = self._resolve(data, defaults, "keywords", fallback=[])
+        scope = self._resolve(data, defaults, "scope", fallback=[])
+        probability = self._resolve(data, defaults, "probability", fallback=1.0)
+        # priority 单独处理
+        priority = self._resolve_priority(data=data, template=template)
+
+        # ===== 组装最终 entry 数据 =====
         full_data = {
-            "__template_key": data.get("__template_key", "default"),
-            "name": data["name"],
-            "enabled": data.get("enabled", True),
-            "priority": data.get("priority", self._next_priority()),
-            "scope": data.get("scope", []),
-            "keywords": data.get("keywords", []),
-            "probability": data.get("probability", 1.0),
+            "__template_key": template.value,
+            "template": template.value,
+            "name": entry_name,
+            "enabled": enabled,
+            "priority": priority,
+            "scope": scope,
+            "keywords": keywords,
+            "probability": probability,
             "content": data["content"],
-            "duration": data.get("duration", self.cfg.default_duration),
-            "times": data.get("times", self.cfg.default_times),
+            "duration": duration,
+            "times": times,
         }
 
+        # ===== 创建并注册 =====
         entry = LoreEntry(full_data)
         self.entries.append(entry)
         self.cfg.entry_storage.append(full_data)
@@ -143,7 +193,10 @@ class Lorebook:
         self._refresh_enabled_cache()
         self.cfg.save_config()
 
-        logger.info(f"新增 entry: {entry.name} (priority={entry.priority})")
+        logger.info(
+            f"新增 entry: {entry.name} "
+            f"(template={template.value}, priority={entry.priority})"
+        )
         return entry
 
     def remove_entries(self, names: list[str]) -> tuple[list[str], list[str]]:
