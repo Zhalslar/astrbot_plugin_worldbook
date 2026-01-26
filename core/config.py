@@ -132,9 +132,7 @@ class PluginConfig(ConfigNode):
     def _normalize_lorefiles(self) -> None:
         files = self.lorefiles
 
-        i = 0
-        while i < len(files):
-            raw = files[i]
+        for i, raw in enumerate(files):
             try:
                 path = Path(raw).resolve()
                 if not path.exists():
@@ -151,7 +149,6 @@ class PluginConfig(ConfigNode):
                     )
 
                 files[i] = str(path)
-                i += 1
 
             except Exception as e:
                 logger.warning(f"[config] 处理 lorefiles 失败: {raw} ({e})")
