@@ -111,7 +111,7 @@
             "default": "请输入提示词"
           },
           "duration": {
-            "description": "注入时长",
+            "description": "生效时长",
             "hint": "该条目生效的持续时间（秒）。设为 180 表示触发后 3 分钟内持续生效；设为 0 表示一直生效",
             "type": "int",
             "slider": {
@@ -122,7 +122,7 @@
             "default": 180
           },
           "times": {
-            "description": "注入次数",
+            "description": "生效次数",
             "hint": "在一次触发周期中最多生效的次数。达到次数后将不再生效；设为 0 表示不限次数",
             "type": "int",
             "slider": {
@@ -134,8 +134,181 @@
           }
         }
       },
+      "resident": {
+        "name": "常驻条目",
+        "hint": "对每次模型请求都生效",
+        "items": {
+          "name": {
+            "description": "名称",
+            "hint": "必填。条目的唯一名称，用于查询和命令操作，请避免重复。建议简短明确",
+            "type": "string",
+            "default": "请输入名称"
+          },
+          "enabled": {
+            "description": "启用",
+            "hint": "是否启用本条目。关闭后本条目不会被触发或生效",
+            "type": "bool",
+            "default": true
+          },
+          "priority": {
+            "description": "优先级",
+            "hint": "条目生效的优先级，数字越小优先级越高。当多个条目同时生效时，优先级高的影响更强",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 100,
+              "step": 1
+            },
+            "default": 50
+          },
+          "scope": {
+            "description": "触发范围",
+            "hint": "限制哪些会话、群聊、用户可以触发本条目。留空表示不限制。可填写用户ID、群聊ID、会话ID，或填写 admin 表示仅管理员可触发。",
+            "type": "list",
+            "default": [
+              ".*"
+            ],
+            "invisible": true
+          },
+          "keywords": {
+            "description": "触发规则",
+            "hint": "限制哪些格式的消息可以触发本条目。消息中 包含这些关键词 或 匹配正则表达式 时触发本条目。留空则默认使用【名称】作为触发词",
+            "type": "list",
+            "default": [],
+            "invisible": true
+          },
+          "probability": {
+            "description": "触发概率",
+            "hint": "满足触发条件后条目生效的概率。1 表示每次必定生效，0.5 表示约一半概率生效。用于随机事件或彩蛋，一般无需修改",
+            "slider": {
+              "min": 0,
+              "max": 1,
+              "step": 0.01
+            },
+            "type": "float",
+            "default": 1.0,
+            "invisible": true
+          },
+          "content": {
+            "description": "提示词",
+            "hint": "条目生效时注入的内容。这里填写每次模型请求都要注入的提示词，比如 bot 的兴趣爱好、性格特点、背景信息等",
+            "type": "text",
+            "default": "请输入提示词"
+          },
+          "duration": {
+            "description": "生效时长",
+            "hint": "该条目生效的持续时间（秒）。设为 180 表示触发后 3 分钟内持续生效；设为 0 表示一直生效",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 600,
+              "step": 10
+            },
+            "default": 0,
+            "invisible": true
+          },
+          "times": {
+            "description": "生效次数",
+            "hint": "在一次触发周期中最多生效的次数。达到次数后将不再生效；设为 0 表示不限次数",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 10,
+              "step": 1
+            },
+            "default": 0,
+            "invisible": true
+          }
+        }
+      },
+      "chance": {
+        "name": "随机条目",
+        "hint": "对单次请求随机生效",
+        "items": {
+          "name": {
+            "description": "名称",
+            "hint": "必填。条目的唯一名称，用于查询和命令操作，请避免重复。建议简短明确",
+            "type": "string",
+            "default": "请输入随机事件名"
+          },
+          "enabled": {
+            "description": "启用",
+            "hint": "是否启用本条目。关闭后本条目不会被触发或生效",
+            "type": "bool",
+            "default": true
+          },
+          "priority": {
+            "description": "优先级",
+            "hint": "条目生效的优先级，数字越小优先级越高。当多个条目同时生效时，优先级高的影响更强",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 100,
+              "step": 1
+            },
+            "default": 1,
+            "invisible": true
+          },
+          "scope": {
+            "description": "触发范围",
+            "hint": "限制哪些会话、群聊、用户可以触发该随机事件。留空表示不限制。可填写用户ID、群聊ID、会话ID，或填写 admin 表示仅管理员可触发。",
+            "type": "list",
+            "default": []
+          },
+          "keywords": {
+            "description": "触发规则",
+            "hint": "限制哪些格式的消息可以触发该随机事件。消息中 包含这些关键词 或 匹配正则表达式 时触发该随机事件。留空则默认使用【名称】作为触发词",
+            "type": "list",
+            "default": [
+              ".*"
+            ],
+            "invisible": true
+          },
+          "probability": {
+            "description": "触发概率",
+            "hint": "满足触发条件后条目生效的概率。1 表示每次必定生效，0.5 表示约一半概率生效。用于随机事件或彩蛋，一般无需修改",
+            "slider": {
+              "min": 0,
+              "max": 1,
+              "step": 0.01
+            },
+            "type": "float",
+            "default": 0.5
+          },
+          "content": {
+            "description": "提示词",
+            "hint": "条目生效时注入的内容。这里填写你要添加的随机事件，比如 随机彩蛋、随机日程、随机提醒等等",
+            "type": "text",
+            "default": "请输入随机事件内容"
+          },
+          "duration": {
+            "description": "生效时长",
+            "hint": "该随机事件的持续时间（秒）",
+            "type": "int",
+            "slider": {
+              "min": 1,
+              "max": 600,
+              "step": 10
+            },
+            "default": 180
+          },
+          "times": {
+            "description": "生效次数",
+            "hint": "该随机事件在一次触发周期中最多生效的次数。达到次数后将不再生效；设为 0 表示不限次数",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 10,
+              "step": 1
+            },
+            "default": 0,
+            "invisible": true
+          }
+        }
+      },
       "user": {
         "name": "用户条目",
+        "hint": "对特定用户的消息生效",
         "items": {
           "name": {
             "description": "名称（用户名）",
@@ -190,7 +363,7 @@
             "default": "请输入提示词"
           },
           "duration": {
-            "description": "注入时长",
+            "description": "生效时长",
             "hint": "该条目生效的持续时间（秒）。设为 180 表示触发后 3 分钟内持续生效；设为 0 表示一直生效",
             "type": "int",
             "slider": {
@@ -202,7 +375,7 @@
             "invisible": true
           },
           "times": {
-            "description": "注入次数",
+            "description": "生效次数",
             "hint": "在一次触发周期中最多生效的次数。达到次数后将不再生效；设为 0 表示不限次数",
             "type": "int",
             "slider": {
@@ -217,6 +390,7 @@
       },
       "group": {
         "name": "群聊条目",
+        "hint": "对特定群聊的消息生效",
         "items": {
           "name": {
             "description": "名称（群名）",
@@ -271,7 +445,7 @@
             "default": "请输入提示词"
           },
           "duration": {
-            "description": "注入时长",
+            "description": "生效时长",
             "hint": "该条目生效的持续时间（秒）。设为 180 表示触发后 3 分钟内持续生效；设为 0 表示一直生效",
             "type": "int",
             "slider": {
@@ -283,7 +457,7 @@
             "invisible": true
           },
           "times": {
-            "description": "注入次数",
+            "description": "生效次数",
             "hint": "在一次触发周期中最多生效的次数。达到次数后将不再生效；设为 0 表示不限次数",
             "type": "int",
             "slider": {
