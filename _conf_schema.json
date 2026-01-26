@@ -222,7 +222,7 @@
             "description": "名称（群名）",
             "hint": "必填！条目的唯一名称，用于查询和命令操作，请避免重复。建议填群名",
             "type": "string",
-            "default": "请输入用户名"
+            "default": "请输入群名"
           },
           "enabled": {
             "description": "启用",
