@@ -1,5 +1,4 @@
 # plugin.py
-import asyncio
 
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, filter
@@ -12,6 +11,7 @@ from astrbot.core.star.filter.permission import PermissionType
 from .core.config import PluginConfig
 from .core.entry import LoreEntry
 from .core.lorebook import Lorebook
+from .core.scheduler import LoreCronScheduler
 from .core.session import SessionCache
 from .core.share import LorebookShare
 from .core.wildcard import WildcardResolver, register_builtin
@@ -26,12 +26,20 @@ class WorldBookPlugin(Star):
         self.share = LorebookShare(self.lorebook, self.cfg)
         self.sessions = SessionCache()
         self.wildcards = WildcardResolver()
+        self.cron = LoreCronScheduler(self.lorebook, self.sessions)
 
         register_builtin(self.wildcards)
 
+    # ================= 生命周期 =================
+
     async def initialize(self):
-        """加载插件时触发"""
+        """加载插件时调用"""
         await self.lorebook.initialize()
+        self.cron.start()
+
+    async def terminate(self):
+        """插件卸载时调用"""
+        self.cron.shutdown()
 
     # ================= 全局态命令 =================
 
@@ -268,35 +276,33 @@ class WorldBookPlugin(Star):
         # 注入阶段
         self._inject_entries(event, req, umo)
 
-    def _activate_entries(self, event: AstrMessageEvent, msg: str, umo: str) -> None:
-        """根据消息匹配并激活条目"""
-
-        entries = self.lorebook.match_entries(msg)
-        if not entries:
-            return
-
+    def _activate_entries(self, event, msg: str, umo: str) -> None:
         gid = event.get_group_id()
         uid = event.get_sender_id()
         is_admin = event.is_admin()
 
-        # 作用域过滤
-        entries = [
-            e
-            for e in entries
-            if e.allow_scope(
+        candidates: list[LoreEntry] = []
+
+        for e in self.lorebook.list_enabled_entries():
+            # 所有激活决策，统一交给 LoreEntry
+            if e.can_activate(
+                text=msg,
                 user_id=uid,
                 group_id=gid,
                 session_id=umo,
                 is_admin=is_admin,
-            )
-            and e.allow_probability()
-        ]
+            ):
+                candidates.append(e)
 
-        if not entries:
+        if not candidates:
             return
 
-        self.sessions.activate(umo, entries)
-        logger.debug(f"{umo} 激活条目: {', '.join(e.name for e in entries)}")
+        # 激活成功后的收尾逻辑，也交给 LoreEntry
+        for e in candidates:
+            e.on_activated()
+
+        self.sessions.activate(umo, candidates)
+        logger.debug(f"{umo} 激活条目: {', '.join(e.name for e in candidates)}")
 
     def _inject_entries(
         self, event: AstrMessageEvent, req: ProviderRequest, umo: str

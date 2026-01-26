@@ -133,6 +133,7 @@ class LoreFile:
             "scope": list(entry.scope),
             "keywords": list(entry.keywords),
             "probability": entry.probability,
+            "cron": entry.cron,
             "content": entry.content,
             "duration": entry.duration,
             "times": entry.times,
