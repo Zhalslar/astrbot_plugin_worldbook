@@ -130,6 +130,7 @@ class Lorebook:
             "priority": data.get("priority", self._next_priority()),
             "scope": data.get("scope", []),
             "keywords": data.get("keywords", []),
+            "probability": data.get("probability", 1.0),
             "content": data["content"],
             "duration": data.get("duration", self.cfg.default_duration),
             "times": data.get("times", self.cfg.default_times),

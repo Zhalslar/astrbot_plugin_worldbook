@@ -139,12 +139,10 @@ class PluginConfig(ConfigNode):
                 path = Path(raw).resolve()
                 if not path.exists():
                     logger.warning(f"[config] lorefiles 不存在: {path}")
-                    files.pop(i)
                     continue
 
                 if not path.is_file():
                     logger.warning(f"[config] lorefiles 不是文件: {path}")
-                    files.pop(i)
                     continue
 
                 if path.suffix.lower() not in {".json", ".yaml", ".yml"}:
@@ -157,4 +155,3 @@ class PluginConfig(ConfigNode):
 
             except Exception as e:
                 logger.warning(f"[config] 处理 lorefiles 失败: {raw} ({e})")
-                files.pop(i)

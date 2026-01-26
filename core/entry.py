@@ -13,7 +13,7 @@ from .config import ConfigNode
 class LoreEntry(ConfigNode):
     __template_key: str
     name: str
-    enabled: bool  # enabled: 全局静态开关，仅用于配置态启停
+    enabled: bool
     priority: int
     scope: list[str]
     keywords: list[str]
@@ -23,7 +23,6 @@ class LoreEntry(ConfigNode):
     times: int
 
     def __init__(self, data: dict):
-        data.setdefault("probability", 1.0)
         super().__init__(data)
 
         self._activated_at: float | None = None
