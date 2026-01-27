@@ -66,8 +66,8 @@
             "default": 50
           },
           "scope": {
-            "description": "激活范围",
-            "hint": "限制哪些会话、群聊或用户的消息才可能触发该条目, 可填写会话ID、群组ID或用户ID, 填 admin 表示仅管理员可用, 留空表示不限制",
+            "description": "生效范围",
+            "hint": "限制条目在哪些对话中生效, 可填写会话ID、群组ID或用户ID, 填 admin 表示仅管理员可用, 留空表示不限制",
             "type": "list",
             "default": []
           },
@@ -151,8 +151,8 @@
             "default": 50
           },
           "scope": {
-            "description": "激活范围",
-            "hint": "限制哪些会话、群聊或用户的消息才可能触发该条目, 可填写会话ID、群组ID或用户ID, 填 admin 表示仅管理员可用, 留空表示不限制",
+            "description": "生效范围",
+            "hint": "限制条目在哪些对话中生效, 可填写会话ID、群组ID或用户ID, 填 admin 表示仅管理员可用, 留空表示不限制",
             "type": "list",
             "default": [],
             "invisible": true
@@ -242,7 +242,7 @@
             "default": 10
           },
           "scope": {
-            "description": "激活范围",
+            "description": "生效范围",
             "hint": "固定条目默认对所有会话生效, 一般无需单独限制范围",
             "type": "list",
             "default": [],
@@ -336,8 +336,8 @@
             "default": 30
           },
           "scope": {
-            "description": "激活范围",
-            "hint": "限制哪些会话、群聊或用户才有机会触发该随机事件, 可填写会话ID、群组ID或用户ID, 填 admin 表示仅管理员可用, 留空表示不限制",
+            "description": "生效范围",
+            "hint": "限制条目在哪些对话中生效, 可填写会话ID、群组ID或用户ID, 填 admin 表示仅管理员可用, 留空表示不限制",
             "type": "list",
             "default": []
           },
@@ -426,8 +426,8 @@
             "default": 90
           },
           "scope": {
-            "description": "激活范围",
-            "hint": "限制哪些会话、群聊或用户的消息才可能触发该日程, 可填写会话ID、群组ID或用户ID, 填 admin 表示仅管理员可用, 留空表示不限制。相当于定义日程的参与者",
+            "description": "生效范围",
+            "hint": "限制条目在哪些对话中生效, 可填写会话ID、群组ID或用户ID, 填 admin 表示仅管理员可用, 留空表示不限制。相当于定义日程的参与者",
             "type": "list",
             "default": []
           },

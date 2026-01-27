@@ -204,6 +204,26 @@ class WorldBookPlugin(Star):
         if not entries:
             return
 
+        uid = event.get_sender_id()
+        gid = event.get_group_id()
+        is_admin = event.is_admin()
+
+        # === 使用阶段 scope gate ===
+        scoped_entries: list[LoreEntry] = []
+        for e in entries:
+            if e.allow_consume(
+                user_id=uid,
+                group_id=gid,
+                session_id=umo,
+                is_admin=is_admin,
+            ):
+                scoped_entries.append(e)
+            else:
+                logger.debug(f"[条目:{e.name}] 使用阶段 scope 不满足，已跳过")
+
+        if not scoped_entries:
+            return
+
         # 注入数量限制：
         # - 越靠前的条目影响越大
         # - 超出部分仅在本次请求中被忽略
