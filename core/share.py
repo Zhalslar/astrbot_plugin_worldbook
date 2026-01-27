@@ -15,7 +15,7 @@ from .config import PluginConfig
 
 class LorebookShare:
     """
-    世界书文件分享层（单 YAML 文件版）
+    世界书文件分享层
 
     设计约定：
     - 流通格式：单个 .yaml / .yml
@@ -89,14 +89,9 @@ class LorebookShare:
 
     # ================= 导入 =================
 
-    async def download_lorebook(
-        self,
-        event: AstrMessageEvent,
-        *,
-        override: bool = False,
-    ):
+    async def download_lorebook(self, event: AstrMessageEvent):
         """
-        下载并导入世界书（单 YAML 文件）
+        下载并导入世界书（单文件）
         """
         if event.get_platform_name() != "aiocqhttp":
             yield event.plain_result("本插件未适配此平台的文件接收功能")
@@ -134,10 +129,7 @@ class LorebookShare:
             lorefile.write_bytes(data)
 
             # 直接按世界书文件导入
-            self.lorebook.load_entry_from_lorefile(
-                str(lorefile),
-                override=override,
-            )
+            self.lorebook.load_entry_from_lorefile(str(lorefile))
 
             yield event.plain_result("该世界书导入完成")
             event.stop_event()

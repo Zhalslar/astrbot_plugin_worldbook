@@ -13,13 +13,29 @@ from .entry import LoreEntry
 
 class LoreFile:
     """
-    世界书文件协议层
-
-    职责：
-    - 文件 <-> 原始 entry dict
-    - JSON / YAML 支持
-    - 结构兼容与兜底
+    世界书文件层 (支持JSON / YAML)
     """
+
+    # === 内部工具 ===
+
+    @staticmethod
+    def _load_raw(path: Path) -> Any:
+        suffix = path.suffix.lower()
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                if suffix in {".yaml", ".yml"}:
+                    import yaml
+
+                    return yaml.safe_load(f)
+
+                if suffix == ".json":
+                    import json
+
+                    return json.load(f)
+
+                raise ValueError(f"不支持的文件类型: {suffix}")
+        except Exception as e:
+            raise RuntimeError(f"读取 lorefile 失败: {e}") from e
 
     # === 对外接口 ===
 
@@ -60,7 +76,7 @@ class LoreFile:
         """
         result: list[dict[str, Any]] = []
         for e in entries:
-            result.append(LoreFile._entry_to_dict(e))
+            result.append(e.to_dict())
         return result
 
     @staticmethod
@@ -99,41 +115,4 @@ class LoreFile:
         except Exception as e:
             raise RuntimeError(f"写入 lorefile 失败: {e}") from e
 
-    # === 内部工具 ===
 
-    @staticmethod
-    def _load_raw(path: Path) -> Any:
-        suffix = path.suffix.lower()
-        try:
-            with path.open("r", encoding="utf-8") as f:
-                if suffix in {".yaml", ".yml"}:
-                    import yaml
-
-                    return yaml.safe_load(f)
-
-                if suffix == ".json":
-                    import json
-
-                    return json.load(f)
-
-                raise ValueError(f"不支持的文件类型: {suffix}")
-        except Exception as e:
-            raise RuntimeError(f"读取 lorefile 失败: {e}") from e
-
-    @staticmethod
-    def _entry_to_dict(entry: LoreEntry) -> dict[str, Any]:
-        """
-        LoreEntry -> 标准 lorefile dict（规范协议）
-        """
-        return {
-            "template": entry.template.value,
-            "name": entry.name,
-            "enabled": entry.enabled,
-            "priority": entry.priority,
-            "scope": list(entry.scope),
-            "keywords": list(entry.keywords),
-            "probability": entry.probability,
-            "content": entry.content,
-            "duration": entry.duration,
-            "times": entry.times,
-        }
