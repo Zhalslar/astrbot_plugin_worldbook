@@ -6,34 +6,16 @@ from typing import Any
 
 class Template(str, Enum):
     DEFAULT = "default"
+    COMMON = "common"
     RESIDENT = "resident"
     CHANCE = "chance"
+    SCHEDULE = "schedule"
     USER = "user"
     GROUP = "group"
 
     @classmethod
     def values(cls) -> set[str]:
         return {e.value for e in cls}
-
-    @property
-    def is_default(self) -> bool:
-        return self is Template.DEFAULT
-
-    @property
-    def is_resident(self) -> bool:
-        return self is Template.RESIDENT
-
-    @property
-    def is_random(self) -> bool:
-        return self is Template.CHANCE
-
-    @property
-    def is_user(self) -> bool:
-        return self is Template.USER
-
-    @property
-    def is_group(self) -> bool:
-        return self is Template.GROUP
 
     @classmethod
     def from_data(cls, data: dict) -> "Template":  # noqa: UP037
@@ -64,30 +46,42 @@ class Template(str, Enum):
         base = {
             "priority": 50,
             "keywords": [],
+            "cron": "",
             "duration": 180,
             "times": 5,
+            "probability": 1,
         }
 
         overrides: dict[Template, dict[str, Any]] = {
+            Template.DEFAULT: {},
+            Template.COMMON: {},
             Template.RESIDENT: {
-                "priority": 20,
+                "priority": 10,
                 "keywords": [".*"],
                 "duration": 0,
                 "times": 0,
             },
             Template.CHANCE: {
-                "priority": 1,
-                "keywords": [".*"],
+                "priority": 30,
+                "keywords": [],
+                "times": 1,
+                "probability": 0.05,
+            },
+            Template.SCHEDULE: {
+                "priority": 80,
+                "keywords": [],
+                "cron": "0 0 * * *",
+                "duration": 86400,
                 "times": 1,
             },
-            Template.USER: {
+            Template.GROUP: {
                 "priority": 120,
                 "keywords": [".*"],
                 "duration": 0,
                 "times": 0,
             },
-            Template.GROUP: {
-                "priority": 110,
+            Template.USER: {
+                "priority": 150,
                 "keywords": [".*"],
                 "duration": 0,
                 "times": 0,

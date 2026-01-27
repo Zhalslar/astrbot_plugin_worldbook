@@ -2,41 +2,93 @@
 from __future__ import annotations
 
 import copy
-import time
 
+from astrbot.api import logger
+
+from .config import PluginConfig
 from .entry import LoreEntry
 
 
 class SessionCache:
     """会话级 Prompt 缓存"""
 
-    def __init__(self):
+    def __init__(self, config: PluginConfig):
+        self.cfg = config
         # umo -> active LoreEntry list
         self._data: dict[str, list[LoreEntry]] = {}
 
-    # ========= 内部工具 =========
-
-    def _cleanup(self, umo: str) -> list[LoreEntry] | None:
+    def get_sorted_active(self, umo: str) -> list[LoreEntry]:
+        """
+        获取当前会话的有效条目（按优先级升序）
+        不活跃的会被直接移除
+        """
         entries = self._data.get(umo)
         if not entries:
-            return None
+            return []
 
-        entries = [e for e in entries if e.available]
+        # 只保留活跃的
+        active_entries = [e for e in entries if e.active]
 
-        if not entries:
+        if not active_entries:
             self._data.pop(umo, None)
-            return None
+            return []
 
-        self._data[umo] = entries
-        return entries
+        # priority 数字越小，顺序越靠前
+        active_entries.sort(key=lambda x: x.priority)
 
-    # ========= 对外接口 =========
+        # 回写：确保 data 里只有活跃的
+        self._data[umo] = active_entries
+        return active_entries
 
-    def get(self, umo: str) -> list[LoreEntry] | None:
+    def attach(self, umo: str, entries: list[LoreEntry]) -> None:
         """
-        获取当前会话的有效 prompts
+        将条目挂载到会话中
+
+        - 条目同名则覆盖（新 > 旧）
+        - allow_same_priority=False ：最终不允许同 priority 并存（新 > 旧）
+        - allow_same_priority=True ：允许同 priority 并存
         """
-        return self._cleanup(umo)
+
+        # 1. 取出旧条目
+        old_entries = self.get_sorted_active(umo)
+
+        # 2. 深拷贝新条目
+        new_entries: list[LoreEntry] = [copy.deepcopy(e) for e in entries]
+
+        # 3. 按 name 合并（新覆盖旧）
+        old_by_name: dict[str, LoreEntry] = {e.name: e for e in old_entries}
+        new_by_name: dict[str, LoreEntry] = {e.name: e for e in new_entries}
+
+        merged_by_name: dict[str, LoreEntry] = dict(old_by_name)
+        merged_by_name.update(new_by_name)  # 新 > 旧
+
+        merged: list[LoreEntry] = list(merged_by_name.values())
+
+        # 4. 按 priority 合并（可选）
+        if not self.cfg.allow_same_priority:
+            by_priority: dict[int, LoreEntry] = {}
+
+            # 关键点：
+            # merged 中已经保证「同名新 > 旧」
+            # 这里再次利用 dict 覆盖，保证「同 priority 新 > 旧」
+            for e in merged:
+                if e.priority in by_priority:
+                    logger.debug(
+                        f"优先级[{e.priority}]冲突，已覆盖条目: "
+                        f"{by_priority[e.priority].name} -> {e.name}"
+                    )
+                by_priority[e.priority] = e
+
+            merged = list(by_priority.values())
+
+        # 挂载条目到会话下
+        self._data[umo] = merged
+
+        # 激活最终条目
+        for e in merged:
+            e.enter_session()
+
+        logger.debug(f"已挂载并激活条目: {[e.name for e in merged]}")
 
     def remove(self, umo: str, names: list[str]) -> list[str]:
         """
@@ -59,43 +111,16 @@ class SessionCache:
 
         if remain:
             self._data[umo] = remain
+            logger.debug(f"Removed {removed} from {umo}")
         else:
             self._data.pop(umo, None)
+            logger.debug(f"Removed all entries from {umo}")
 
         return removed
 
-    def activate(self, umo: str, entries: list[LoreEntry]) -> None:
-        """
-        激活一组条目到会话中（按 priority 管理）。
-
-        规则：
-        - 会话内以 entry.priority 为唯一键
-        - 新触发的 prompt 覆盖同 priority 的旧 prompt（重新激活）
-        - 不同 priority 的 prompt 会叠加存在
-        - 覆盖会重置激活时间与注入次数
-        """
-        now = time.time()
-
-        # 1. 取出当前会话中仍然有效的 entries
-        old_entries = self._data.get(umo, [])
-        old_entries = [e for e in old_entries if e.available]
-
-        # 2. 用 priority 作为唯一 key
-        entry_map: dict[int, LoreEntry] = {e.priority: e for e in old_entries}
-
-        # 3. 新触发的 prompt 覆盖同 priority 的旧 prompt
-        for e in entries:
-            ae = copy.deepcopy(e)  # 必须 deepcopy
-            ae._activated_at = now
-            ae._inject_count = 0  # 显式重置（更清晰）
-
-            entry_map[e.priority] = ae
-
-        # 4. 写回 session
-        self._data[umo] = list(entry_map.values())
-
-    def deactivate(self, umo: str) -> None:
+    def clear(self, umo: str) -> None:
         """
         强制清除会话的所有prompts
         """
         self._data.pop(umo, None)
+        logger.debug(f"[SessionManager] clear session {umo}")

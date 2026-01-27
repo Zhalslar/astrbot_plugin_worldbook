@@ -1,15 +1,15 @@
 {
   "lorefiles": {
     "description": "世界书文件",
-    "hint": "用于批量加载世界书条目的文件路径。支持相对路径和绝对路径，路径请使用 / 分隔。插件启动时会自动加载这些文件中的条目，已存在的条目会自动跳过。默认已内置示例世界书文件，用户可参照内置示例文件自行编写自己的世界书文件",
+    "hint": "用于批量加载世界书条目的文件路径支持相对路径和绝对路径, 路径请使用 / 分隔插件启动时会自动加载这些文件中的条目, 已存在的条目会自动跳过默认已内置示例世界书文件, 用户可参照内置示例文件自行编写自己的世界书文件",
     "type": "list",
     "default": [
       "data/plugins/astrbot_plugin_worldbook/default_lorebook.yaml"
     ]
   },
   "export_format": {
-    "description": "导出格式",
-    "hint": "使用命令【导出世界书】时生成的文件格式，可选 json 或 yaml。仅在导出或分享世界书时需要关注，日常使用可保持默认。",
+    "description": "世界书导出格式",
+    "hint": "使用命令【导出世界书】时生成的文件格式, 可选 json 或 yaml仅在导出或分享世界书时需要关注, 日常使用可保持默认",
     "type": "string",
     "options": [
       "json",
@@ -18,8 +18,8 @@
     "default": "json"
   },
   "max_inject_count": {
-    "description": "最大注入数",
-    "hint": "每次模型请求中，最多允许同时生效的条目数量。用于防止注入内容过多导致效果混乱。设为 0 表示不限制。普通使用建议保持默认。",
+    "description": "条目最大注入数",
+    "hint": "每次模型请求中, 最多允许同时生效的条目数量用于防止注入内容过多导致效果混乱设为 0 表示不限制普通使用建议保持默认",
     "type": "int",
     "slider": {
       "min": 0,
@@ -28,29 +28,35 @@
     },
     "default": 3
   },
+  "allow_same_priority": {
+    "description": "允许优先级相同",
+    "hint": "开启后，优先级相同的条目会一起生效；关闭后，只保留最新触发的条目",
+    "type": "bool",
+    "default": true
+  },
   "entry_storage": {
     "description": "世界书条目",
     "type": "template_list",
-    "hint": "世界书的核心配置区域。新手只需填写【名称】和【提示词】即可正常使用，其余选项可全部保持默认。也可通过命令【添加条目 名称 内容】快速添加。另外插件初始化时会加载所有世界书文件中的条目，并保存到插件配置文件中",
+    "hint": "世界书的核心配置区域条目会按【启用 → 范围 → 触发 → 生命周期 → 概率】顺序判断是否生效新手只需填写【名称】和【提示词】即可正常使用, 其余选项可全部保持默认也可通过命令【添加条目 名称 内容】快速添加另外插件初始化时会加载所有世界书文件中的条目, 并保存到插件配置文件中",
     "templates": {
       "default": {
         "name": "通用条目",
         "items": {
           "name": {
             "description": "名称",
-            "hint": "必填。条目的唯一名称，用于查询和命令操作，请避免重复。建议简短明确",
+            "hint": "条目的唯一标识, 用于管理和命令操作",
             "type": "string",
             "default": "请输入名称"
           },
           "enabled": {
             "description": "启用",
-            "hint": "是否启用本条目。关闭后本条目不会被触发或生效",
+            "hint": "总开关关闭后条目完全不参与判断",
             "type": "bool",
             "default": true
           },
           "priority": {
             "description": "优先级",
-            "hint": "条目生效的优先级，数字越小优先级越高。当多个条目同时生效时，优先级高的影响更强",
+            "hint": "多个条目同时生效时的注入顺序, 数字越小越靠前",
             "type": "int",
             "slider": {
               "min": 0,
@@ -60,37 +66,26 @@
             "default": 50
           },
           "scope": {
-            "description": "触发范围",
-            "hint": "限制哪些会话、群聊、用户可以触发本条目。留空表示不限制。可填写用户ID、群聊ID、会话ID，或填写 admin 表示仅管理员可触发。",
+            "description": "激活范围",
+            "hint": "限制哪些会话、群聊或用户的消息才可能触发该条目, 可填写会话ID、群组ID或用户ID, 填 admin 表示仅管理员可用, 留空表示不限制",
             "type": "list",
             "default": []
           },
           "keywords": {
-            "description": "触发规则",
-            "hint": "限制哪些格式的消息可以触发本条目。消息中 包含这些关键词 或 匹配正则表达式 时触发本条目。留空则默认使用【名称】作为触发词",
+            "description": "正则触发",
+            "hint": "触发方式1: 当消息包含这些关键词或匹配正则表达式时触发条目，留空则禁用此方式",
             "type": "list",
             "default": []
           },
-          "probability": {
-            "description": "触发概率",
-            "hint": "满足触发条件后条目生效的概率。设为 1 表示每次必定生效。用于随机事件或彩蛋，一般无需修改",
-            "slider": {
-              "min": 0,
-              "max": 1,
-              "step": 0.01
-            },
-            "type": "float",
-            "default": 1.0
-          },
-          "content": {
-            "description": "提示词",
-            "hint": "条目生效时注入的内容。这里填写你希望模型遵守的规则、设定或背景信息，例如人物性格、世界观说明等",
-            "type": "text",
-            "default": "请输入提示词"
+          "cron": {
+            "description": "定时触发",
+            "hint": "触发方式2: 使用 Cron 表达式（分 时 日 月 周），到达时间点后触发条目，留空则禁用此方式",
+            "type": "string",
+            "default": ""
           },
           "duration": {
             "description": "生效时长",
-            "hint": "该条目生效的持续时间（秒）。设为 0 表示一直生效",
+            "hint": "条目触发后可持续生效的时间（秒）设为 0 表示永久",
             "type": "int",
             "slider": {
               "min": 0,
@@ -101,7 +96,7 @@
           },
           "times": {
             "description": "生效次数",
-            "hint": "在一次触发周期中最多生效的次数。达到次数后将不再生效；设为 0 表示不限次数",
+            "hint": "在一次触发周期内最多生效的次数。达到上限后不再生效",
             "type": "int",
             "slider": {
               "min": 0,
@@ -109,55 +104,193 @@
               "step": 1
             },
             "default": 5
+          },
+          "probability": {
+            "description": "生效概率",
+            "hint": "在满足所有条件后, 最终生效的概率常用于随机事件",
+            "type": "float",
+            "slider": {
+              "min": 0,
+              "max": 1,
+              "step": 0.01
+            },
+            "default": 1.0
+          },
+          "content": {
+            "description": "注入内容",
+            "hint": "条目生效时注入到模型中的规则或设定内容",
+            "type": "text",
+            "default": "请输入提示词"
           }
         }
       },
-      "resident": {
-        "name": "常驻条目",
-        "hint": "对每次模型请求都生效",
+      "common": {
+        "name": "常用条目",
         "items": {
           "name": {
             "description": "名称",
-            "hint": "必填。条目的唯一名称，用于查询和命令操作，请避免重复。建议简短明确",
+            "hint": "条目的唯一标识, 用于管理和命令操作",
             "type": "string",
             "default": "请输入名称"
           },
           "enabled": {
             "description": "启用",
-            "hint": "是否启用本条目。关闭后本条目不会被触发或生效",
+            "hint": "总开关关闭后条目完全不参与判断",
             "type": "bool",
             "default": true
           },
           "priority": {
             "description": "优先级",
-            "hint": "条目生效的优先级，数字越小优先级越高。当多个条目同时生效时，优先级高的影响更强",
+            "hint": "多个条目同时生效时的注入顺序, 数字越小越靠前",
             "type": "int",
             "slider": {
               "min": 0,
               "max": 100,
               "step": 1
             },
-            "default": 20
+            "default": 50
           },
           "scope": {
-            "description": "触发范围",
-            "hint": "限制哪些会话、群聊、用户可以触发本条目。留空表示不限制。可填写用户ID、群聊ID、会话ID，或填写 admin 表示仅管理员可触发。",
+            "description": "激活范围",
+            "hint": "限制哪些会话、群聊或用户的消息才可能触发该条目, 可填写会话ID、群组ID或用户ID, 填 admin 表示仅管理员可用, 留空表示不限制",
             "type": "list",
             "default": [],
             "invisible": true
           },
           "keywords": {
-            "description": "触发规则",
-            "hint": "限制哪些格式的消息可以触发本条目。消息中 包含这些关键词 或 匹配正则表达式 时触发本条目。留空则默认使用【名称】作为触发词",
+            "description": "正则触发",
+            "hint": "触发方式1: 当消息包含这些关键词或匹配正则表达式时触发条目，留空则禁用此方式",
+            "type": "list",
+            "default": []
+          },
+          "cron": {
+            "description": "定时触发",
+            "hint": "触发方式2: 使用 Cron 表达式（分 时 日 月 周），到达时间点后触发条目，留空则禁用此方式",
+            "type": "string",
+            "default": "",
+            "invisible": true
+          },
+          "duration": {
+            "description": "生效时长",
+            "hint": "条目触发后可持续生效的时间（秒）设为 0 表示永久",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 600,
+              "step": 10
+            },
+            "default": 180,
+            "invisible": true
+          },
+          "times": {
+            "description": "生效次数",
+            "hint": "在一次触发周期内最多生效的次数。达到上限后不再生效",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 10,
+              "step": 1
+            },
+            "default": 5,
+            "invisible": true
+          },
+          "probability": {
+            "description": "生效概率",
+            "hint": "在满足所有条件后, 最终生效的概率常用于随机事件",
+            "type": "float",
+            "slider": {
+              "min": 0,
+              "max": 1,
+              "step": 0.01
+            },
+            "default": 1.0,
+            "invisible": true
+          },
+          "content": {
+            "description": "提示词",
+            "hint": "条目生效时注入到模型中的规则或设定内容",
+            "type": "text",
+            "default": "请输入提示词"
+          }
+        }
+      },
+      "resident": {
+        "name": "固定条目",
+        "hint": "对每次模型请求都生效",
+        "items": {
+          "name": {
+            "description": "名称",
+            "hint": "条目的唯一标识, 用于管理和命令操作。固定条目通常用于全局或长期设定, 名称建议简短明确",
+            "type": "string",
+            "default": "请输入名称"
+          },
+          "enabled": {
+            "description": "启用",
+            "hint": "总开关关闭后。该固定条目将不再对任何模型请求生效",
+            "type": "bool",
+            "default": true
+          },
+          "priority": {
+            "description": "优先级",
+            "hint": "当多个条目同时生效时的注入顺序。固定条目通常用于基础规则, 建议保持较高优先级（数值较小）",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 100,
+              "step": 1
+            },
+            "default": 10
+          },
+          "scope": {
+            "description": "激活范围",
+            "hint": "固定条目默认对所有会话生效, 一般无需单独限制范围",
+            "type": "list",
+            "default": [],
+            "invisible": true
+          },
+          "keywords": {
+            "description": "正则触发",
+            "hint": "固定条目不依赖具体消息内容, 默认对所有请求生效",
             "type": "list",
             "default": [
               ".*"
             ],
             "invisible": true
           },
+          "cron": {
+            "description": "定时触发",
+            "hint": "固定条目通常不需要定时触发",
+            "type": "string",
+            "default": "",
+            "invisible": true
+          },
+          "duration": {
+            "description": "生效时长",
+            "hint": "固定条目默认永久生效, 无需设置持续时间",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 600,
+              "step": 10
+            },
+            "default": 0,
+            "invisible": true
+          },
+          "times": {
+            "description": "生效次数",
+            "hint": "固定条目默认不限制注入次数, 会在每次请求中生效",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 10,
+              "step": 1
+            },
+            "default": 0,
+            "invisible": true
+          },
           "probability": {
-            "description": "触发概率",
-            "hint": "满足触发条件后条目生效的概率。设为 1 表示每次必定生效。用于随机事件或彩蛋，一般无需修改",
+            "description": "生效概率",
+            "hint": "固定条目默认每次请求必定生效, 一般不需要随机概率",
             "slider": {
               "min": 0,
               "max": 1,
@@ -169,99 +302,64 @@
           },
           "content": {
             "description": "提示词",
-            "hint": "条目生效时注入的内容。这里填写每次模型请求都要注入的提示词，比如 bot 的兴趣爱好、性格特点、背景信息等",
+            "hint": "在每一次模型请求中都会注入的长期设定内容, 例如角色性格、行为准则、背景规则等",
             "type": "text",
-            "default": "请输入提示词"
-          },
-          "duration": {
-            "description": "生效时长",
-            "hint": "该条目生效的持续时间（秒）。设为 0 表示一直生效",
-            "type": "int",
-            "slider": {
-              "min": 0,
-              "max": 600,
-              "step": 10
-            },
-            "default": 0,
-            "invisible": true
-          },
-          "times": {
-            "description": "生效次数",
-            "hint": "在一次触发周期中最多生效的次数。达到次数后将不再生效；设为 0 表示不限次数",
-            "type": "int",
-            "slider": {
-              "min": 0,
-              "max": 10,
-              "step": 1
-            },
-            "default": 0,
-            "invisible": true
+            "default": "请输入设定内容"
           }
         }
       },
       "chance": {
         "name": "随机条目",
-        "hint": "对单次请求随机生效",
+        "hint": "随机生效的事件",
         "items": {
           "name": {
             "description": "名称",
-            "hint": "必填。条目的唯一名称，用于查询和命令操作，请避免重复。建议简短明确",
+            "hint": "条目的唯一标识, 用于管理和命令操作随机条目通常表示一个具体的随机事件或彩蛋",
             "type": "string",
             "default": "请输入随机事件名"
           },
           "enabled": {
             "description": "启用",
-            "hint": "是否启用本条目。关闭后本条目不会被触发或生效",
+            "hint": "总开关关闭后该随机条目将完全不参与判断, 也不会生效",
             "type": "bool",
             "default": true
           },
           "priority": {
             "description": "优先级",
-            "hint": "条目生效的优先级，数字越小优先级越高。当多个条目同时生效时，优先级高的影响更强",
+            "hint": "随机条目通常用于短暂插入的事件, 设置偏高一点的优先级",
             "type": "int",
             "slider": {
               "min": 0,
               "max": 100,
               "step": 1
             },
-            "default": 1,
-            "invisible": true
+            "default": 30
           },
           "scope": {
-            "description": "触发范围",
-            "hint": "限制哪些会话、群聊、用户可以触发该随机事件。留空表示不限制。可填写用户ID、群聊ID、会话ID，或填写 admin 表示仅管理员可触发。",
+            "description": "激活范围",
+            "hint": "限制哪些会话、群聊或用户才有机会触发该随机事件, 可填写会话ID、群组ID或用户ID, 填 admin 表示仅管理员可用, 留空表示不限制",
             "type": "list",
             "default": []
           },
           "keywords": {
-            "description": "触发规则",
-            "hint": "限制哪些格式的消息可以触发该随机事件。消息中 包含这些关键词 或 匹配正则表达式 时触发该随机事件。留空则默认使用【名称】作为触发词",
+            "description": "正则触发",
+            "hint": "随机条目默认对所有消息具备触发资格, 一般无需根据消息内容区分",
             "type": "list",
             "default": [
               ".*"
             ],
             "invisible": true
           },
-          "probability": {
-            "description": "触发概率",
-            "hint": "满足触发条件后条目生效的概率。设为 1 表示每次必定生效。用于随机事件或彩蛋，一般无需修改",
-            "slider": {
-              "min": 0,
-              "max": 1,
-              "step": 0.01
-            },
-            "type": "float",
-            "default": 0.5
-          },
-          "content": {
-            "description": "提示词",
-            "hint": "条目生效时注入的内容。这里填写你要添加的随机事件，比如 随机彩蛋、随机日程、随机提醒等等",
-            "type": "text",
-            "default": "请输入随机事件内容"
+          "cron": {
+            "description": "定时触发",
+            "hint": "随机条目无需定时触发",
+            "type": "string",
+            "default": "",
+            "invisible": true
           },
           "duration": {
             "description": "生效时长",
-            "hint": "该随机事件的持续时间（秒）",
+            "hint": "随机事件在成功生效后, 可持续影响模型的时间长度（秒）",
             "type": "int",
             "slider": {
               "min": 1,
@@ -272,7 +370,7 @@
           },
           "times": {
             "description": "生效次数",
-            "hint": "该随机事件在一次触发周期中最多生效的次数。达到次数后将不再生效；设为 0 表示不限次数",
+            "hint": "该随机事件在一次触发周期内，最多允许生效的次数。达到上限后将不再生效",
             "type": "int",
             "slider": {
               "min": 0,
@@ -280,50 +378,99 @@
               "step": 1
             },
             "default": 1
+          },
+          "probability": {
+            "description": "生效概率",
+            "hint": "在满足其他条件后, 该随机事件最终发生的概率， 此处定义了随机时间的发生概率",
+            "slider": {
+              "min": 0,
+              "max": 1,
+              "step": 0.01
+            },
+            "type": "float",
+            "default": 0.05
+          },
+          "content": {
+            "description": "提示词（注入内容）",
+            "hint": "随机事件发生时注入到模型中的内容, 例如彩蛋提示、随机剧情或临时规则",
+            "type": "text",
+            "default": "请输入随机事件内容"
           }
         }
       },
-      "user": {
-        "name": "用户条目",
-        "hint": "对特定用户的消息生效",
+      "schedule": {
+        "name": "日程条目",
+        "hint": "用于注入周期性事件",
         "items": {
           "name": {
-            "description": "名称（用户名）",
-            "hint": "必填！条目的唯一名称，用于查询和命令操作，请避免重复。建议填用户名",
+            "description": "日程名称",
+            "hint": "用于标识该日程条目的名称，例如「周一工作日程」「考试当天安排」「节假日事项」",
             "type": "string",
-            "default": "请输入用户名"
+            "default": "请输入日程名称"
           },
           "enabled": {
             "description": "启用",
-            "hint": "是否启用本条目。关闭后本条目不会被触发或生效",
+            "hint": "是否启用该日程",
             "type": "bool",
             "default": true
           },
           "priority": {
             "description": "优先级",
-            "hint": "条目生效的优先级，数字越小优先级越高。当多个条目同时生效时，优先级高的影响更强。用户条目建议统一用120",
+            "hint": "日程条目通常用于当天的重要背景信息，一般不用设太大",
             "type": "int",
-            "default": 120,
-            "invisible": true
+            "slider": {
+              "min": 0,
+              "max": 100,
+              "step": 1
+            },
+            "default": 90
           },
           "scope": {
-            "description": "触发范围（用户ID）",
-            "hint": "必填！ 请填写该用户的QQ等ID, 用来确保只有该用户的消息可以触发本条目",
+            "description": "激活范围",
+            "hint": "限制哪些会话、群聊或用户的消息才可能触发该日程, 可填写会话ID、群组ID或用户ID, 填 admin 表示仅管理员可用, 留空表示不限制。相当于定义日程的参与者",
             "type": "list",
             "default": []
           },
           "keywords": {
-            "description": "触发规则",
-            "hint": "默认的 .* 表示匹配任意字符, 即该用户的任意消息都可以触发本条目",
+            "description": "正则触发",
+            "hint": "日程条目不依赖消息内容触发，该项固定忽略",
             "type": "list",
-            "default": [
-              ".*"
-            ],
+            "default": [],
+            "invisible": true
+          },
+          "cron": {
+            "description": "日程注入时间",
+            "hint": "使用 Cron 表达式（分 时 日 月 周）。到达指定时间点时，该日程获得一次激活资格",
+            "type": "string",
+            "default": "0 0 * * *"
+          },
+          "duration": {
+            "description": "日程有效期",
+            "hint": "默认在当天内持续生效（24 小时）",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 86400,
+              "step": 3600
+            },
+            "default": 86400,
+            "invisible": true
+          },
+          "times": {
+            "description": "生效次数",
+            "hint": "日程在当天内可多次注入，一般不限制。",
+            "type": "int",
+            "slider": {
+              "min": 0,
+              "max": 10,
+              "step": 1
+            },
+            "default": 0,
             "invisible": true
           },
           "probability": {
-            "description": "触发概率",
-            "hint": "满足触发条件后条目生效的概率。设为 1 表示每次必定生效。用于随机事件或彩蛋，一般无需修改",
+            "description": "生效概率",
+            "hint": "日程条目默认每天必定生效",
             "slider": {
               "min": 0,
               "max": 1,
@@ -334,14 +481,61 @@
             "invisible": true
           },
           "content": {
-            "description": "提示词（用户信息）",
-            "hint": "条目生效时注入的内容。请填写该用户的资料信息、兴趣爱好、人物关系等， 让bot知道和它对话的用户是个什么样的人",
+            "description": "当天日程内容",
+            "hint": "描述今天需要记住的事项、安排或规则。例如：今天是工作日、今天有会议、今天是节假日等。",
             "type": "text",
-            "default": "请输入提示词"
+            "default": "请输入当天的日程内容"
+          }
+        }
+      },
+      "group": {
+        "name": "群聊条目",
+        "hint": "对指定群聊生效",
+        "items": {
+          "name": {
+            "description": "名称（群名）",
+            "hint": "条目的唯一标识, 用于管理和识别通常填写该群聊的名称或代称",
+            "type": "string",
+            "default": "请输入群名"
+          },
+          "enabled": {
+            "description": "启用",
+            "hint": "总开关关闭后该群聊条目将完全不参与激活判断",
+            "type": "bool",
+            "default": true
+          },
+          "priority": {
+            "description": "优先级",
+            "hint": "群聊条目用于定义群聊环境, 优先级固定较低, 一般无需修改",
+            "type": "int",
+            "default": 110,
+            "invisible": true
+          },
+          "scope": {
+            "description": "群聊限定（群聊ID）",
+            "hint": "必填！ 填写该群聊的群号, 用于确保只有该群聊中的消息才会触发此条目",
+            "type": "list",
+            "default": []
+          },
+          "keywords": {
+            "description": "正则触发",
+            "hint": "群聊条目默认对该群聊内的所有消息生效, 无需根据消息内容区分",
+            "type": "list",
+            "default": [
+              ".*"
+            ],
+            "invisible": true
+          },
+          "cron": {
+            "description": "定时触发",
+            "hint": "群聊条目无需定时触发",
+            "type": "string",
+            "default": "",
+            "invisible": true
           },
           "duration": {
             "description": "生效时长",
-            "hint": "该条目生效的持续时间（秒）。设为 180 表示触发后 3 分钟内持续生效；设为 0 表示一直生效",
+            "hint": "群聊条目通常作为长期环境设定存在, 默认永久生效",
             "type": "int",
             "slider": {
               "min": 0,
@@ -353,7 +547,7 @@
           },
           "times": {
             "description": "生效次数",
-            "hint": "在一次触发周期中最多生效的次数。达到次数后将不再生效；设为 0 表示不限次数",
+            "hint": "群聊条目默认不限制生效次数",
             "type": "int",
             "slider": {
               "min": 0,
@@ -362,50 +556,10 @@
             },
             "default": 0,
             "invisible": true
-          }
-        }
-      },
-      "group": {
-        "name": "群聊条目",
-        "hint": "对特定群聊的消息生效",
-        "items": {
-          "name": {
-            "description": "名称（群名）",
-            "hint": "必填！条目的唯一名称，用于查询和命令操作，请避免重复。建议填群名",
-            "type": "string",
-            "default": "请输入群名"
-          },
-          "enabled": {
-            "description": "启用",
-            "hint": "是否启用本条目。关闭后本条目不会被触发或生效",
-            "type": "bool",
-            "default": true
-          },
-          "priority": {
-            "description": "优先级",
-            "hint": "条目生效的优先级，数字越小优先级越高。当多个条目同时生效时，优先级高的影响更强。群聊条目建议统一用110",
-            "type": "int",
-            "default": 110,
-            "invisible": true
-          },
-          "scope": {
-            "description": "触发范围（群聊ID）",
-            "hint": "必填！ 请填写该群聊的群号, 用来确保只有该群聊的消息可以触发本条目",
-            "type": "list",
-            "default": []
-          },
-          "keywords": {
-            "description": "触发规则",
-            "hint": "默认的 .* 表示匹配任意字符, 即该群聊的任意消息都可以触发本条目",
-            "type": "list",
-            "default": [
-              ".*"
-            ],
-            "invisible": true
           },
           "probability": {
-            "description": "触发概率",
-            "hint": "满足触发条件后条目生效的概率。1 表示每次必定生效，0.5 表示约一半概率生效。用于随机事件或彩蛋，一般无需修改",
+            "description": "生效概率",
+            "hint": "群聊条目默认每次都会生效, 不参与随机判断",
             "slider": {
               "min": 0,
               "max": 1,
@@ -417,13 +571,60 @@
           },
           "content": {
             "description": "提示词（群聊信息）",
-            "hint": "条目生效时注入的内容。请填写该群聊的资料信息、主要话题等， 让bot知道和它在的群聊是个什么样的群聊",
+            "hint": "用于描述该群聊的主题、氛围、规则或背景信息, 让模型理解当前所在的群聊环境",
             "type": "text",
-            "default": "请输入提示词"
+            "default": "请输入群聊信息"
+          }
+        }
+      },
+      "user": {
+        "name": "用户条目",
+        "hint": "对指定用户生效",
+        "items": {
+          "name": {
+            "description": "名称（用户名）",
+            "hint": "条目的唯一标识, 用于管理和识别通常填写该用户的昵称或代称即可",
+            "type": "string",
+            "default": "请输入用户名"
+          },
+          "enabled": {
+            "description": "启用",
+            "hint": "总开关关闭后该用户条目将完全不参与激活判断",
+            "type": "bool",
+            "default": true
+          },
+          "priority": {
+            "description": "优先级",
+            "hint": "用户条目用于覆盖通用规则, 优先级固定较低, 一般无需修改",
+            "type": "int",
+            "default": 120,
+            "invisible": true
+          },
+          "scope": {
+            "description": "用户限定（用户ID）",
+            "hint": "必填！ 填写该用户的唯一 ID（如 QQ 号）, 用于确保只有该用户的消息才会触发此条目",
+            "type": "list",
+            "default": []
+          },
+          "keywords": {
+            "description": "正则触发",
+            "hint": "用户条目默认对该用户的所有消息生效, 无需根据消息内容判断",
+            "type": "list",
+            "default": [
+              ".*"
+            ],
+            "invisible": true
+          },
+          "cron": {
+            "description": "定时触发",
+            "hint": "用户条目无需定时触发",
+            "type": "string",
+            "default": "",
+            "invisible": true
           },
           "duration": {
             "description": "生效时长",
-            "hint": "该条目生效的持续时间（秒）。设为 180 表示触发后 3 分钟内持续生效；设为 0 表示一直生效",
+            "hint": "用户条目通常作为长期设定存在, 默认永久生效",
             "type": "int",
             "slider": {
               "min": 0,
@@ -435,7 +636,7 @@
           },
           "times": {
             "description": "生效次数",
-            "hint": "在一次触发周期中最多生效的次数。达到次数后将不再生效；设为 0 表示不限次数",
+            "hint": "用户条目默认不限制生效次数",
             "type": "int",
             "slider": {
               "min": 0,
@@ -444,6 +645,24 @@
             },
             "default": 0,
             "invisible": true
+          },
+          "probability": {
+            "description": "生效概率",
+            "hint": "用户条目默认每次都会生效, 不参与随机判断",
+            "slider": {
+              "min": 0,
+              "max": 1,
+              "step": 0.01
+            },
+            "type": "float",
+            "default": 1.0,
+            "invisible": true
+          },
+          "content": {
+            "description": "提示词（用户信息）",
+            "hint": "用于描述该用户的背景、性格、偏好或与他人的关系, 让模型清楚当前对话对象是谁",
+            "type": "text",
+            "default": "请输入用户信息"
           }
         }
       }

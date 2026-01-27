@@ -22,30 +22,49 @@ class Lorebook:
 
     async def initialize(self):
         self._register_entry()
-        self._refresh_enabled_cache()
         asyncio.create_task(asyncio.to_thread(self._load_lorefiles))
-        self.cfg.save_config()
+        self._save_config()
         logger.debug(f"已注册条目: {'、'.join(p.name for p in self.entries)}")
 
     def _register_entry(self) -> None:
-        """注册配置中的所有条目"""
+        """注册配置中的所有条目（兜底保证 name 唯一）"""
         for item in self.cfg.entry_storage:
-            entry = LoreEntry(item)
-            self.entries.append(entry)
+            raw_name = item.get("name")
+            if not raw_name:
+                continue
+
+            unique_name = self._resolve_unique_name(raw_name)
+
+            if unique_name != raw_name:
+                logger.warning(
+                    f"[lorebook] 检测到重复条目名，已重命名: {raw_name} -> {unique_name}"
+                )
+                item["name"] = unique_name
+
+            self.entries.append(LoreEntry(item))
 
     def _load_lorefiles(self) -> None:
         """依次加载 cfg.lorefiles 中的路径"""
         for file in self.cfg.lorefiles:
             try:
-                self.load_entry_from_lorefile(file, override=False)
+                self.load_entry_from_lorefile(file)
             except Exception as e:
                 logger.error(f"[entry] load failed: {file} ({e})")
 
-    def _refresh_enabled_cache(self) -> None:
-        """刷新启用条目缓存（内部使用）"""
-        self._enabled_entries_cache: list[LoreEntry] = [
-            e for e in self.entries if e.enabled
-        ]
+    def _sort_entries_by_priority(self) -> None:
+        """原地排序 entries（地址不变）"""
+        self.entries.sort(key=lambda e: e.priority)
+        cfg_map = {cfg["name"]: cfg for cfg in self.cfg.entry_storage}
+        self.cfg.entry_storage[:] = [cfg_map[e.name] for e in self.entries]
+
+    def _save_config(self) -> None:
+        """
+        保存配置前统一兜底：
+        - 按 priority 排序
+        - 同步 entries / entry_storage 顺序
+        """
+        self._sort_entries_by_priority()
+        self.cfg.save_config()
 
     # ================= 查询接口 =================
 
@@ -61,8 +80,8 @@ class Lorebook:
         return list(self.entries)
 
     def list_enabled_entries(self) -> list[LoreEntry]:
-        """获取当前已启用的条目"""
-        return list(self._enabled_entries_cache)
+        """获取全部启用的条目"""
+        return [entry for entry in self.entries if entry.enabled]
 
     def list_disabled_entries(self) -> list[LoreEntry]:
         """获取当前已禁用的条目"""
@@ -73,6 +92,21 @@ class Lorebook:
         return sorted(self.entries, key=lambda p: p.priority)
 
     # ================= CRUD 接口 =================
+
+    def _resolve_unique_name(self, name: str) -> str:
+        """
+        生成不重名的条目名，采用 name_2 / name_3 / ... 形式
+        """
+        if not self.get_entry(name):
+            return name
+
+        index = 2
+        while True:
+            new_name = f"{name}_{index}"
+            if not self.get_entry(new_name):
+                return new_name
+            index += 1
+
     def _resolve(
         self,
         data: dict,
@@ -93,29 +127,32 @@ class Lorebook:
 
     def _resolve_priority(
         self,
-        *,
         data: dict,
-        template: Template,
+        defaults: dict,
+        *,
+        key: str = "priority",
     ) -> int:
         """
         priority 规则：
         - 用户显式指定：直接使用
-        - 否则：从模板默认 priority 起点开始自增
+        - 否则：从模板默认 priority（base）开始，取第一个 > base 的可用自增优先级
         """
         # 1. 用户指定（最高优先级）
-        if "priority" in data:
-            return data["priority"]
+        if key in data:
+            return data[key]
 
         # 2. 模板起始 priority（base）
-        base = template.defaults().get("priority", 0)
+        base = defaults.get(key, 0)
 
-        # 3. 在现有 entries 中，找 >= base 的最大值
-        candidates = [e.priority for e in self.entries if e.priority >= base]
+        # 3. 收集所有已占用的 priority
+        used = {e.priority for e in self.entries}
 
-        if not candidates:
-            return base
+        # 4. 从 base + 1 开始，找第一个未被占用的
+        p = base + 1
+        while p in used:
+            p += 1
 
-        return max(candidates) + 1
+        return p
 
     def add_entry(
         self,
@@ -123,7 +160,6 @@ class Lorebook:
         *,
         name: str | None = None,
         content: str | None = None,
-        override: bool = False,
     ) -> LoreEntry:
         """
         新增一个条目
@@ -138,23 +174,17 @@ class Lorebook:
 
         # ===== 参数合并（命令 / 代码调用优先）=====
         if name is not None:
-            data["name"] = name
+            data["name"] = name.strip()
         if content is not None:
-            data["content"] = content
+            data["content"] = content.strip()
 
         if not data.get("name"):
             raise ValueError("add_entry 缺少必填字段: name")
         if not data.get("content"):
             raise ValueError("add_entry 缺少必填字段: content")
 
-        entry_name = data["name"]
-
-        # ===== 重名处理 =====
-        existing = self.get_entry(entry_name)
-        if existing:
-            if not override:
-                raise ValueError(f"Prompt 已存在: {entry_name}")
-            self.remove_entries([entry_name])
+        # ===== 获取唯一名称 =====
+        entry_name = self._resolve_unique_name(data["name"])
 
         # ===== 模板解析 =====
         template = Template.from_data(data)
@@ -162,13 +192,14 @@ class Lorebook:
 
         # ===== 字段统一解析 =====
         enabled = self._resolve(data, defaults, "enabled", fallback=True)
+        scope = self._resolve(data, defaults, "scope", fallback=[])
+        keywords = self._resolve(data, defaults, "keywords", fallback=[])
+        cron = self._resolve(data, defaults, "cron", fallback="")
         duration = self._resolve(data, defaults, "duration", fallback=0)
         times = self._resolve(data, defaults, "times", fallback=0)
-        keywords = self._resolve(data, defaults, "keywords", fallback=[])
-        scope = self._resolve(data, defaults, "scope", fallback=[])
         probability = self._resolve(data, defaults, "probability", fallback=1.0)
         # priority 单独处理
-        priority = self._resolve_priority(data=data, template=template)
+        priority = self._resolve_priority(data, defaults)
 
         # ===== 组装最终 entry 数据 =====
         full_data = {
@@ -179,22 +210,20 @@ class Lorebook:
             "priority": priority,
             "scope": scope,
             "keywords": keywords,
-            "probability": probability,
-            "content": data["content"],
+            "cron": cron,
             "duration": duration,
             "times": times,
+            "probability": probability,
+            "content": data["content"],
         }
 
         # ===== 创建并注册 =====
         entry = LoreEntry(full_data)
         self.entries.append(entry)
         self.cfg.entry_storage.append(full_data)
-
-        self._refresh_enabled_cache()
-        self.cfg.save_config()
-
+        self._save_config()
         logger.info(
-            f"新增 entry: {entry.name} "
+            f"新增条目: {entry.name} "
             f"(template={template.value}, priority={entry.priority})"
         )
         return entry
@@ -218,11 +247,10 @@ class Lorebook:
             if name not in success:
                 failed.append(name)
 
-        self.entries = remaining_entries
-        self.cfg.entry_storage = remaining_configs
+        self.entries[:] = remaining_entries
+        self.cfg.entry_storage[:] = remaining_configs
+        self._save_config()
 
-        self._refresh_enabled_cache()
-        self.cfg.save_config()
         return success, failed
 
     # ================= 配置接口 =================
@@ -233,7 +261,7 @@ class Lorebook:
             return False
         changed = e.add_scope(scope)
         if changed:
-            self.cfg.save_config()
+            self._save_config()
         return True
 
     def remove_scope_from_entry(self, name: str, scope: str) -> bool:
@@ -242,7 +270,7 @@ class Lorebook:
             return False
         changed = entry.remove_scope(scope)
         if changed:
-            self.cfg.save_config()
+            self._save_config()
         return True
 
     def update_keywords(self, name: str, keywords: list[str]) -> bool:
@@ -251,7 +279,7 @@ class Lorebook:
             return False
 
         entry.set_keywords(keywords)
-        self.cfg.save_config()
+        self._save_config()
         return True
 
     def update_priority(self, name: str, priority: int) -> bool:
@@ -260,39 +288,18 @@ class Lorebook:
             return False
 
         entry.set_priority(priority)
-        self._refresh_enabled_cache()
-        self.cfg.save_config()
+        self._save_config()
         return True
-
-    # ================= 运行时匹配接口 =================
-
-    @property
-    def enabled_entries(self) -> list[LoreEntry]:
-        """获取启用条目（原始顺序）"""
-        return self._enabled_entries_cache
-
-    def enabled_sorted_entries(self) -> list[LoreEntry]:
-        """获取按 priority 排序后的启用条目"""
-        return sorted(
-            self._enabled_entries_cache,
-            key=lambda p: p.priority,
-        )
-
-    def match_entries(self, text: str) -> list[LoreEntry]:
-        matched: list[LoreEntry] = []
-        for entry in self.enabled_sorted_entries():
-            if entry.available and entry.match(text):
-                matched.append(entry)
-        return matched
 
     # ================= 读取文件 =================
 
-    def load_entry_from_lorefile(
-        self,
-        path: str,
-        *,
-        override: bool = False,
-    ) -> None:
+    def load_entry_from_lorefile(self, path: str, skip_same: bool = True) -> None:
+        """
+        从世界书文件中加载条目到配置中
+        规则:
+          - 仅支持 Json 和 Yaml 文件
+          - 同名条目会跳过
+        """
         file_path = Path(path)
 
         try:
@@ -316,17 +323,16 @@ class Lorebook:
 
             if not name or not content:
                 skipped += 1
-                skipped_names.append(name or "<unknown>")
+                skipped_names.append(name or "unknown")
                 continue
 
-            existing = self.get_entry(name)
-            if existing and not override:
+            if self.get_entry(name) and skip_same:
                 skipped += 1
                 skipped_names.append(name)
                 continue
 
             try:
-                self.add_entry(item, override=override)
+                self.add_entry(item)
                 loaded += 1
             except Exception as e:
                 failed += 1

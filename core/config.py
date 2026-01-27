@@ -109,21 +109,27 @@ class PluginConfig(ConfigNode):
     lorefiles: list[str]
     export_format: str
     max_inject_count: int
+    allow_same_priority: bool
     entry_storage: list[dict[str, Any]]
+
+    _plugin_name = "astrbot_plugin_worldbook"
 
     def __init__(self, config: AstrBotConfig):
         super().__init__(config)
 
-        self.plugin_dir = Path(get_astrbot_plugin_path())
-        self.default_lorefile = (
-            self.plugin_dir / "astrbot_plugin_worldbook" / "default_lorebook.yaml"
-        )
-        self.data_dir = StarTools.get_data_dir("astrbot_plugin_worldbook")
+        self.plugin_dir = Path(get_astrbot_plugin_path()) / self._plugin_name
+        self.default_lorefile = self.plugin_dir / "default_lorebook.yaml"
+        self.style_dir = self.plugin_dir / "pillowmd_style"
+
+        self.data_dir = StarTools.get_data_dir(self._plugin_name)
 
         self.export_dir = self.data_dir / "export"
         self.import_dir = self.data_dir / "import"
         self.export_dir.mkdir(parents=True, exist_ok=True)
         self.import_dir.mkdir(parents=True, exist_ok=True)
+
+        self.cache_dir = self.data_dir / "cache"
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
 
         self._normalize_lorefiles()
 
