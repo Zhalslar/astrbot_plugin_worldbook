@@ -236,6 +236,8 @@ class LoreEntry(ConfigNode):
     ) -> bool:
         """
         统一激活判决, 在监听LLM消息时调用
+            - 用于判定条目是否允许“进入 Session”
+            - 不代表本次请求一定会注入
         """
 
         # Gate 1: 总开关
@@ -260,6 +262,32 @@ class LoreEntry(ConfigNode):
             return False
 
         return True
+
+    def allow_consume(
+        self,
+        *,
+        user_id: str | None,
+        group_id: str | None,
+        session_id: str | None,
+        is_admin: bool,
+    ) -> bool:
+        """
+        使用阶段 scope 判定
+            - 仅检查 scope + enabled + active
+            - 不包含关键词 / 概率 / cron
+        """
+        if not self.enabled:
+            return False
+
+        if not self.active:
+            return False
+
+        return self._allow_scope(
+            user_id=user_id,
+            group_id=group_id,
+            session_id=session_id,
+            is_admin=is_admin,
+        )
 
     # ==================================================
     # 生命周期钩子
@@ -357,7 +385,7 @@ class LoreEntry(ConfigNode):
 
         lines.extend(
             [
-                "| 状态 | 优先级 | 激活范围 | 生效时长 | 生效次数 | 生效概率 |",
+                "| 状态 | 优先级 | 生效范围 | 生效时长 | 生效次数 | 生效概率 |",
                 "| ---- | ------ | -------- | -------- | -------- | -------- |",
                 f"| {status_text} | {self.priority} | {scope_text} | {duration_text} | {times_text} | {probability_text} |",
             ]
