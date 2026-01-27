@@ -63,13 +63,12 @@ class Template(str, Enum):
             },
             Template.CHANCE: {
                 "priority": 30,
-                "keywords": [],
+                "keywords": [".*"],
                 "times": 1,
                 "probability": 0.05,
             },
             Template.SCHEDULE: {
                 "priority": 80,
-                "keywords": [],
                 "cron": "0 0 * * *",
                 "duration": 86400,
                 "times": 1,

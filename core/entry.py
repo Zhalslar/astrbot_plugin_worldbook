@@ -151,7 +151,7 @@ class LoreEntry(ConfigNode):
         return True
 
     @property
-    def enabled_corn(self) -> bool:
+    def enabled_cron(self) -> bool:
         """是否启用定时任务 (标准 5 段 cron)"""
         if not self.enabled:
             return False
@@ -162,6 +162,8 @@ class LoreEntry(ConfigNode):
         """
         是否处于 cron 激活窗口内
         """
+        if not self.enabled_cron:
+            return False
         if self._cron_fired_at is None:
             return False
 
@@ -282,6 +284,7 @@ class LoreEntry(ConfigNode):
         被 cron 触发，打开一次全局激活窗口
         """
         self._cron_fired_at = time.time()
+        logger.debug(f"[cron] 条目 {self.name} cron 已触发，等待消息激活")
 
     # ==================================================
     # 展示

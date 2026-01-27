@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from pathlib import Path
 
 from astrbot.api import logger
@@ -19,6 +20,7 @@ class Lorebook:
     def __init__(self, config: PluginConfig):
         self.cfg = config
         self.entries: list[LoreEntry] = []
+        self.on_changed: list[Callable[[], None]] = []
 
     async def initialize(self):
         self._register_entry()
@@ -65,6 +67,10 @@ class Lorebook:
         """
         self._sort_entries_by_priority()
         self.cfg.save_config()
+
+    def _emit_changed(self):
+        for cb in self.on_changed:
+            cb()
 
     # ================= 查询接口 =================
 
@@ -222,6 +228,8 @@ class Lorebook:
         self.entries.append(entry)
         self.cfg.entry_storage.append(full_data)
         self._save_config()
+        if entry.enabled_cron:
+            self._emit_changed()
         logger.info(
             f"新增条目: {entry.name} "
             f"(template={template.value}, priority={entry.priority})"
@@ -249,7 +257,9 @@ class Lorebook:
 
         self.entries[:] = remaining_entries
         self.cfg.entry_storage[:] = remaining_configs
-        self._save_config()
+        if success:
+            self._save_config()
+            self._emit_changed()
 
         return success, failed
 

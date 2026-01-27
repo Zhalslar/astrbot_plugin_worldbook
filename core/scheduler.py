@@ -28,6 +28,9 @@ class LoreCronScheduler:
         self._scheduler = AsyncIOScheduler()
         self._started = False
 
+        # 订阅 Lorebook 的变更事件
+        self._lorebook.on_changed.append(self.reload)
+
     # ========== 生命周期 ==========
 
     def start(self) -> None:
@@ -62,7 +65,6 @@ class LoreCronScheduler:
         重新加载所有 cron 任务
 
         使用场景：
-        - 导入世界书
         - 新增 / 删除条目
         - 修改条目的 cron 字段
         """
@@ -80,7 +82,7 @@ class LoreCronScheduler:
         遍历所有 entry，尝试注册其 cron
         """
         for entry in self._lorebook.list_entries():
-            if entry.enabled_corn:
+            if entry.enabled_cron:
                 self._try_register_entry(entry)
 
     def _try_register_entry(self, entry: LoreEntry) -> None:
@@ -116,5 +118,3 @@ class LoreCronScheduler:
 
         # 只通知 entry：cron 已触发
         entry.on_cron_triggered()
-
-        logger.debug(f"[cron] 条目 {entry.name} cron 已触发，等待消息激活")
