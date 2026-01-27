@@ -30,6 +30,9 @@ class LoreEntry(ConfigNode):
     times: int
 
     def __init__(self, data: dict):
+        # 兼容旧版配置
+        data.setdefault("cron", "")
+
         super().__init__(data)
         # 模板
         self._template = Template.from_data(data)
