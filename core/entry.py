@@ -183,25 +183,24 @@ class LoreEntry(ConfigNode):
     def _allow_scope(
         self,
         *,
-        user_id: str | None,
-        group_id: str | None,
-        session_id: str | None,
+        user_id: str,
+        group_id: str,
+        session_id: str,
         is_admin: bool,
     ) -> bool:
-        """scope 权限大门 (尽早失败)"""
+        """scope 权限大门"""
         if not self.scope:
             return True
 
         for s in self.scope:
             if s == "admin" and is_admin:
                 return True
-            if user_id and s == user_id:
+            if s == user_id:
                 return True
-            if group_id and s == group_id:
+            if s == group_id:
                 return True
-            if session_id and s == session_id:
+            if s == session_id:
                 return True
-
         return False
 
     def _has_text_token(self, text: str | None) -> bool:
@@ -228,10 +227,10 @@ class LoreEntry(ConfigNode):
     def check_activate(
         self,
         *,
-        text: str | None,
-        user_id: str | None,
-        group_id: str | None,
-        session_id: str | None,
+        text: str,
+        user_id: str,
+        group_id: str,
+        session_id: str,
         is_admin: bool,
     ) -> bool:
         """
@@ -266,9 +265,9 @@ class LoreEntry(ConfigNode):
     def allow_consume(
         self,
         *,
-        user_id: str | None,
-        group_id: str | None,
-        session_id: str | None,
+        user_id: str,
+        group_id: str,
+        session_id: str,
         is_admin: bool,
     ) -> bool:
         """
