@@ -194,23 +194,24 @@ class WorldBookPlugin(Star):
 
         职责：
         - 读取当前会话中已有的条目
+        - 进行使用阶段 scope / enabled / active 判定
         - 按 priority 排序并裁剪
         - 将内容注入 system_prompt
         - 记录一次使用消耗
         """
 
-        # 获取当前会话中仍然存在的条目
-        entries = self.sessions.get_sorted_active(umo)
-        if not entries:
-            return
-
         uid = event.get_sender_id()
         gid = event.get_group_id()
         is_admin = event.is_admin()
 
-        # === 使用阶段 scope gate ===
+        # Step 0：取出会话中仍然处于 active 状态的条目（已按 priority 排序）
+        session_entries = self.sessions.get_sorted_active(umo)
+        if not session_entries:
+            return
+
+        # Step 1：使用阶段 scope gate
         scoped_entries: list[LoreEntry] = []
-        for e in entries:
+        for e in session_entries:
             if e.allow_consume(
                 user_id=uid,
                 group_id=gid,
@@ -224,25 +225,27 @@ class WorldBookPlugin(Star):
         if not scoped_entries:
             return
 
-        # 注入数量限制：
-        # - 越靠前的条目影响越大
-        # - 超出部分仅在本次请求中被忽略
+        # Step 2：注入数量限制（仅影响本次请求）
         max_count = self.cfg.max_inject_count
-        logger.debug(f"当前会话可用条目：{[e.name for e in entries]}")
-        if max_count > 0 and len(entries) > max_count:
-            dropped = entries[max_count:]
+        inject_entries = scoped_entries
+
+        if max_count > 0 and len(inject_entries) > max_count:
+            dropped = inject_entries[max_count:]
             logger.debug(
                 f"超出最大允许注入数 {max_count}，"
                 f"已忽略 [{', '.join(e.name for e in dropped)}]"
             )
-            entries = entries[:max_count]
+            inject_entries = inject_entries[:max_count]
 
-        if not entries:
+        if not inject_entries:
             return
 
+        logger.debug(f"当前会话实际注入条目：{[e.name for e in inject_entries]}")
+
+        # Step 3：构造 system_prompt 注入内容
         sections: list[str] = []
 
-        for entry in entries:
+        for entry in inject_entries:
             title = f"## [{entry.name}]"
             rendered = self.wildcards.render(entry, event)
             sections.append(f"{title}\n{rendered}")
