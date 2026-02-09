@@ -91,7 +91,6 @@ class LoreEntry(ConfigNode):
         """是否命中任一关键词正则"""
         for p in self._compiled_patterns:
             if p.search(text):
-                logger.debug(f"[条目:{self.name}] 命中正则: {p.pattern}")
                 return True
         return False
 
