@@ -26,7 +26,7 @@
       "max": 10,
       "step": 1
     },
-    "default": 5
+    "default": 6
   },
   "allow_same_priority": {
     "description": "允许优先级相同",
