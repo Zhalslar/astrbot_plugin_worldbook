@@ -13,6 +13,7 @@ _✨ 世界书插件 ✨_
 
 </div>
 
+
 ## 📦 安装方法
 
 在 AstrBot 插件市场搜索 **astrbot_plugin_worldbook**，点击安装即可。

@@ -252,12 +252,18 @@ class LoreEntry(ConfigNode):
             return False
 
         # Gate 3: 激活方式（满足其一即可）
-        if not self._has_text_token(text) and not self.in_cron_window:
+        text_hit = self._has_text_token(text)
+        cron_hit = self.in_cron_window
+        if not text_hit and not cron_hit:
             return False
 
         # Gate 4: 激活的概率
         if not self._satisfy_probability():
             return False
+
+        # cron 资格只消费一次，避免在同一窗口内反复重置 duration / times
+        if cron_hit and not text_hit:
+            self._cron_fired_at = None
 
         return True
 

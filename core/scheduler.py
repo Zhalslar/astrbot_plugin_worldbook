@@ -14,6 +14,51 @@ if TYPE_CHECKING:
     from .session import SessionCache
 
 
+def _normalize_weekday_field(field: str) -> str:
+    """
+    Convert standard crontab weekdays (0/7=Sun, 1=Mon, ..., 6=Sat)
+    to APScheduler weekdays (0=Mon, ..., 6=Sun).
+    """
+
+    def normalize_token(token: str) -> str:
+        token = token.strip().lower()
+        if not token:
+            return token
+        if token in {"*", "sun", "mon", "tue", "wed", "thu", "fri", "sat"}:
+            return token
+        if token.isdigit():
+            value = int(token)
+            if not 0 <= value <= 7:
+                raise ValueError(f"invalid weekday: {token}")
+            return "6" if value in {0, 7} else str(value - 1)
+        raise ValueError(f"invalid weekday: {token}")
+
+    def normalize_part(part: str) -> str:
+        base, *step = part.split("/", maxsplit=1)
+        if "-" in base:
+            start, end = base.split("-", maxsplit=1)
+            base = f"{normalize_token(start)}-{normalize_token(end)}"
+        else:
+            base = normalize_token(base)
+
+        if not step:
+            return base
+        return f"{base}/{step[0].strip()}"
+
+    return ",".join(normalize_part(part) for part in field.split(","))
+
+
+def _build_trigger(cron_expr: str) -> CronTrigger:
+    minute, hour, day, month, weekday = cron_expr.split()
+    return CronTrigger(
+        minute=minute,
+        hour=hour,
+        day=day,
+        month=month,
+        day_of_week=_normalize_weekday_field(weekday),
+    )
+
+
 class LoreCronScheduler:
     """
     LoreEntry 定时激活调度器（cron → 触发条目）
@@ -91,7 +136,7 @@ class LoreCronScheduler:
         """
         try:
             # 使用标准 5 段 cron：分 时 日 月 周
-            trigger = CronTrigger.from_crontab(entry.cron)
+            trigger = _build_trigger(entry.cron)
         except Exception as e:
             logger.warning(
                 f"[cron] 条目 {entry.name} cron 无效，已忽略: {entry.cron} ({e})"
