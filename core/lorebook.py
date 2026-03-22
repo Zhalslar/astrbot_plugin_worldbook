@@ -19,8 +19,12 @@ class Lorebook:
 
     def __init__(self, config: PluginConfig):
         self.cfg = config
-        self.entries: list[LoreEntry] = []
+        self.entry_map: dict[str, LoreEntry] = {}
         self.on_changed: list[Callable[[], None]] = []
+
+    @property
+    def entries(self) -> list[LoreEntry]:
+        return list(self.entry_map.values())
 
     async def initialize(self):
         if self.cfg.entry_storage:
@@ -30,29 +34,29 @@ class Lorebook:
             names = self.load_entry_from_lorefile(self.cfg.default_lorefile)
         logger.debug(f"已注册条目: {names}")
 
-    def _register_entry(self, items: list[dict[str, Any]]) -> list[LoreEntry]:
+    def _register_entry(
+        self, items: list[dict[str, Any]], skip_same: bool = True,
+    ) -> list[str]:
         """注册条目（兜底保证 name 唯一）"""
-        registered_entries: list[LoreEntry] = []
+        registered_names: list[str] = []
         for item in items:
-            raw_name = item.get("name")
-            if not raw_name:
+            name = item.get("name")
+            content = item.get("content")
+            if not name or not content:
                 continue
-            unique_name = self._resolve_unique_name(raw_name)
-            if unique_name != raw_name:
-                logger.warning(
-                    f"[lorebook] 检测到重复条目名，已重命名: {raw_name} -> {unique_name}"
-                )
-                item["name"] = unique_name
+            if skip_same and name in self.entry_map:
+                logger.warning(f"[lorebook] 已存在同名条目: {name}")
+                continue
             entry = LoreEntry(item)
-            self.entries.append(entry)
-            registered_entries.append(entry)
+            self.entry_map[name] = entry
+            registered_names.append(entry.name)
             if item not in self.cfg.entry_storage:
                 self.cfg.entry_storage.append(item)
             if entry.enabled_cron:
                 self._emit_changed()
 
         self._save_config()
-        return registered_entries
+        return registered_names
 
     def _save_config(self) -> None:
         """
@@ -60,9 +64,9 @@ class Lorebook:
         - 按 priority 排序
         - 同步 entries / entry_storage 顺序
         """
-        self.entries.sort(key=lambda e: e.priority)
         cfg_map = {cfg["name"]: cfg for cfg in self.cfg.entry_storage}
-        self.cfg.entry_storage[:] = [cfg_map[e.name] for e in self.entries]
+        sorted_entries = sorted(self.entry_map.values(), key=lambda e: e.priority)
+        self.cfg.entry_storage[:] = [cfg_map[e.name] for e in sorted_entries]
         self.cfg.save_config()
 
     def _emit_changed(self):
@@ -73,14 +77,11 @@ class Lorebook:
 
     def get_entry(self, name: str) -> LoreEntry | None:
         """按 name 获取单个条目"""
-        for entry in self.entries:
-            if entry.name == name:
-                return entry
-        return None
+        return self.entry_map.get(name)
 
     def list_entries(self) -> list[LoreEntry]:
         """获取全部条目（包含启用和禁用）"""
-        return list(self.entries)
+        return list(self.entry_map.values())
 
     def list_enabled_entries(self) -> list[LoreEntry]:
         """获取全部启用的条目"""
@@ -95,20 +96,6 @@ class Lorebook:
         return sorted(self.entries, key=lambda p: p.priority)
 
     # ================= CRUD 接口 =================
-
-    def _resolve_unique_name(self, name: str) -> str:
-        """
-        生成不重名的条目名，采用 name_2 / name_3 / ... 形式
-        """
-        if not self.get_entry(name):
-            return name
-
-        index = 2
-        while True:
-            new_name = f"{name}_{index}"
-            if not self.get_entry(new_name):
-                return new_name
-            index += 1
 
     def _resolve(
         self,
@@ -163,7 +150,7 @@ class Lorebook:
         *,
         name: str | None = None,
         content: str | None = None,
-    ) -> list[LoreEntry]:
+    ) -> list[str]:
         """
         新增一个条目
 
@@ -179,13 +166,10 @@ class Lorebook:
             items.append({"name": name, "content": content})
 
         if not items:
-            raise ValueError("add_entries 缺少必填字段")
+            raise ValueError("add_entries 缺少参数")
 
         full_items = []
         for item in items:
-            # ===== 获取唯一名称 =====
-            entry_name = self._resolve_unique_name(item["name"])
-
             # ===== 模板解析 =====
             template = Template.from_data(item)
             defaults = template.defaults()
@@ -205,7 +189,7 @@ class Lorebook:
             full_item = {
                 "__template_key": template.value,
                 "template": template.value,
-                "name": entry_name,
+                "name": item["name"],
                 "enabled": enabled,
                 "priority": priority,
                 "scope": scope,
@@ -218,30 +202,28 @@ class Lorebook:
             }
             full_items.append(full_item)
 
-        registered_entries = self._register_entry(full_items)
-        return registered_entries
+        registered_names = self._register_entry(full_items)
+        return registered_names
 
     def remove_entries(self, names: list[str]) -> tuple[list[str], list[str]]:
         """按 name 批量删除条目"""
         success: list[str] = []
         failed: list[str] = []
-
-        remaining_entries: list[LoreEntry] = []
-        remaining_configs: list[dict] = []
-
-        for entry, cfg in zip(self.entries, self.cfg.entry_storage):
-            if entry.name in names:
-                success.append(entry.name)
-            else:
-                remaining_entries.append(entry)
-                remaining_configs.append(cfg)
+        removed_names: set[str] = set()
 
         for name in names:
-            if name not in success:
+            if self.entry_map.pop(name, None) is not None:
+                success.append(name)
+                removed_names.add(name)
+            else:
                 failed.append(name)
 
-        self.entries[:] = remaining_entries
-        self.cfg.entry_storage[:] = remaining_configs
+        if removed_names:
+            self.cfg.entry_storage[:] = [
+                cfg
+                for cfg in self.cfg.entry_storage
+                if cfg.get("name") not in removed_names
+            ]
         if success:
             self._save_config()
             self._emit_changed()
@@ -251,7 +233,7 @@ class Lorebook:
     # ================= 配置接口 =================
 
     def add_scope_to_entry(self, name: str, scope: str) -> bool:
-        e = self.get_entry(name)
+        e = self.entry_map.get(name)
         if not e:
             return False
         changed = e.add_scope(scope)
@@ -260,7 +242,7 @@ class Lorebook:
         return True
 
     def remove_scope_from_entry(self, name: str, scope: str) -> bool:
-        entry = self.get_entry(name)
+        entry = self.entry_map.get(name)
         if not entry:
             return False
         changed = entry.remove_scope(scope)
@@ -269,7 +251,7 @@ class Lorebook:
         return True
 
     def update_keywords(self, name: str, keywords: list[str]) -> bool:
-        entry = self.get_entry(name)
+        entry = self.entry_map.get(name)
         if not entry:
             return False
 
@@ -278,7 +260,7 @@ class Lorebook:
         return True
 
     def update_priority(self, name: str, priority: int) -> bool:
-        entry = self.get_entry(name)
+        entry = self.entry_map.get(name)
         if not entry:
             return False
 
