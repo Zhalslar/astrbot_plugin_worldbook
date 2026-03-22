@@ -39,6 +39,8 @@ class Lorebook:
     ) -> list[str]:
         """注册条目（兜底保证 name 唯一）"""
         registered_names: list[str] = []
+        need_save = False
+        need_emit = False
         for item in items:
             name = item.get("name")
             content = item.get("content")
@@ -52,10 +54,13 @@ class Lorebook:
             registered_names.append(entry.name)
             if item not in self.cfg.entry_storage:
                 self.cfg.entry_storage.append(item)
+                need_save = True
             if entry.enabled_cron:
-                self._emit_changed()
-
-        self._save_config()
+                need_emit = True
+        if need_emit:
+            self._emit_changed()
+        if need_save:
+            self._save_config()
         return registered_names
 
     def _save_config(self) -> None:
@@ -170,6 +175,10 @@ class Lorebook:
 
         full_items = []
         for item in items:
+            if not item.get("name"):
+                raise ValueError("缺少必须的 name 参数")
+            if not item.get("content"):
+                raise ValueError("缺少必须的 content 参数")
             # ===== 模板解析 =====
             template = Template.from_data(item)
             defaults = template.defaults()
