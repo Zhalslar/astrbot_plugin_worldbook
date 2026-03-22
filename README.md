@@ -128,6 +128,8 @@ _✨ 世界书插件 ✨_
 
 不会写怎么办，请参考内置世界书：`data\plugins\astrbot_plugin_worldbook\default_lorebook.yaml`
 
+内置世界书在配置的条目为空时自动加载。
+
 ### 通配符支持
 
 你可以在规则内容里加"变量"，注入时会自动替换成实际值，例如：

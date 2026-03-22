@@ -1,22 +1,4 @@
 {
-  "lorefiles": {
-    "description": "世界书文件",
-    "hint": "用于批量加载世界书条目的文件。路径支持相对路径和绝对路径, 路径请使用 / 分隔。插件启动时会自动加载这些文件中的条目, 已存在的条目会自动跳过默认已内置示例世界书文件, 用户可参照内置示例文件自行编写自己的世界书文件",
-    "type": "list",
-    "default": [
-      "data/plugins/astrbot_plugin_worldbook/default_lorebook.yaml"
-    ]
-  },
-  "export_format": {
-    "description": "世界书导出格式",
-    "hint": "使用命令【导出世界书】时生成的文件格式, 可选 json 或 yaml仅在导出或分享世界书时需要关注, 日常使用可保持默认",
-    "type": "string",
-    "options": [
-      "json",
-      "yaml"
-    ],
-    "default": "json"
-  },
   "max_inject_count": {
     "description": "条目最大注入数",
     "hint": "每次模型请求中, 最多允许同时生效的条目数量，用于防止注入内容过多导致效果混乱。设为 0 表示不限制",
