@@ -23,10 +23,13 @@ class Lorebook:
         self.on_changed: list[Callable[[], None]] = []
 
     async def initialize(self):
-        self._register_entry()
-        asyncio.create_task(asyncio.to_thread(self._load_lorefiles))
-        self._save_config()
-        logger.debug(f"已注册条目: {'、'.join(p.name for p in self.entries)}")
+        if self.cfg.entry_storage:
+            self._register_entry()
+        else:
+            logger.debug("[lorebook] 未配置 entry_storage, 将使用默认配置")
+            asyncio.create_task(asyncio.to_thread(self._load_lorefiles))
+            self._save_config()
+            logger.debug(f"已注册条目: {'、'.join(p.name for p in self.entries)}")
 
     def _register_entry(self) -> None:
         """注册配置中的所有条目（兜底保证 name 唯一）"""
