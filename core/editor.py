@@ -80,8 +80,8 @@ class LoreEditor:
             "keywords": [name],
         }
         try:
-            entry = self.lorebook.add_entry(data)
-            msg = f"新增条目：{entry.name} "
+            self.lorebook.add_entries([data])
+            msg = f"新增条目：{name} "
             await self.style_send(event, content, msg=msg)
         except Exception as e:
             logger.error(e)

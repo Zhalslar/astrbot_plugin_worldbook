@@ -43,6 +43,7 @@ class LorebookShare:
         self,
         event: AstrMessageEvent,
         name: str | None = None,
+        export_format: str = "json",
     ):
         """
         导出并上传世界书（单 YAML 文件）
@@ -52,7 +53,7 @@ class LorebookShare:
             return
 
         name = name or f"{event.get_sender_name()}_lorebook"
-        filename = f"{name}.{self.cfg.export_format}"
+        filename = f"{name}.{export_format}"
 
         workdir = self.cfg.export_dir / uuid.uuid4().hex
         workdir.mkdir(parents=True, exist_ok=True)
@@ -129,7 +130,7 @@ class LorebookShare:
             lorefile.write_bytes(data)
 
             # 直接按世界书文件导入
-            self.lorebook.load_entry_from_lorefile(str(lorefile))
+            self.lorebook.load_entry_from_lorefile(lorefile)
 
             yield event.plain_result("该世界书导入完成")
             event.stop_event()

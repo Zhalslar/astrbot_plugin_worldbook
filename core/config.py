@@ -7,8 +7,11 @@ from typing import Any, Union, get_args, get_origin, get_type_hints
 
 from astrbot.api import logger
 from astrbot.core.config.astrbot_config import AstrBotConfig
-from astrbot.core.star.star_tools import StarTools
-from astrbot.core.utils.astrbot_path import get_astrbot_plugin_path
+from astrbot.core.utils.astrbot_path import (
+    get_astrbot_data_path,
+    get_astrbot_plugin_path,
+    get_astrbot_temp_path,
+)
 
 
 class ConfigNode:
@@ -106,8 +109,6 @@ class ConfigNode:
 
 
 class PluginConfig(ConfigNode):
-    lorefiles: list[str]
-    export_format: str
     max_inject_count: int
     allow_same_priority: bool
     entry_storage: list[dict[str, Any]]
@@ -118,41 +119,15 @@ class PluginConfig(ConfigNode):
         super().__init__(config)
 
         self.plugin_dir = Path(get_astrbot_plugin_path()) / self._plugin_name
+        self.data_dir = Path(get_astrbot_data_path()) / self._plugin_name
+        self.cache_dir = Path(get_astrbot_temp_path()) / self._plugin_name
+
         self.default_lorefile = self.plugin_dir / "default_lorebook.yaml"
         self.style_dir = self.plugin_dir / "pillowmd_style"
-
-        self.data_dir = StarTools.get_data_dir(self._plugin_name)
-
         self.export_dir = self.data_dir / "export"
         self.import_dir = self.data_dir / "import"
+
+        self.data_dir.mkdir(parents=True, exist_ok=True)
         self.export_dir.mkdir(parents=True, exist_ok=True)
         self.import_dir.mkdir(parents=True, exist_ok=True)
-
-        self.cache_dir = self.data_dir / "cache"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-
-        self._normalize_lorefiles()
-
-    def _normalize_lorefiles(self) -> None:
-        files = self.lorefiles
-
-        for i, raw in enumerate(files):
-            try:
-                path = Path(raw).resolve()
-                if not path.exists():
-                    logger.warning(f"[config] lorefiles 不存在: {path}")
-                    continue
-
-                if not path.is_file():
-                    logger.warning(f"[config] lorefiles 不是文件: {path}")
-                    continue
-
-                if path.suffix.lower() not in {".json", ".yaml", ".yml"}:
-                    logger.warning(
-                        f"[config] lorefiles 后缀不常见 ({path.suffix}): {path}"
-                    )
-
-                files[i] = str(path)
-
-            except Exception as e:
-                logger.warning(f"[config] 处理 lorefiles 失败: {raw} ({e})")
