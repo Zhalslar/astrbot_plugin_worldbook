@@ -170,6 +170,10 @@ class Lorebook:
 
         full_items = []
         for item in items:
+            if not item.get("name"):
+                raise ValueError("缺少必须的 name 参数")
+            if not item.get("content"):
+                raise ValueError("缺少必须的 content 参数")
             # ===== 模板解析 =====
             template = Template.from_data(item)
             defaults = template.defaults()
