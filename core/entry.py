@@ -4,6 +4,7 @@ from __future__ import annotations
 import random
 import re
 import time
+from datetime import date
 from typing import Any
 
 from astrbot.api import logger
@@ -25,6 +26,7 @@ class LoreEntry(ConfigNode):
     keywords: list[str]
     probability: float
     cron: str
+    holiday_filter: str
     content: str
     duration: int
     times: int
@@ -32,6 +34,7 @@ class LoreEntry(ConfigNode):
     def __init__(self, data: dict):
         # 兼容旧版配置
         data.setdefault("cron", "")
+        data.setdefault("holiday_filter", "ignore")
 
         super().__init__(data)
         # 模板
@@ -67,6 +70,7 @@ class LoreEntry(ConfigNode):
             "keywords": list(self.keywords),
             "probability": self.probability,
             "cron": self.cron,
+            "holiday_filter": self.holiday_filter,
             "content": self.content,
             "duration": self.duration,
             "times": self.times,
@@ -252,6 +256,14 @@ class LoreEntry(ConfigNode):
             return True
         return False
 
+    def _calendar_match(self) -> bool:
+        """节假日过滤判定（ignore 时始终通过）"""
+        if self.holiday_filter == "ignore":
+            return True
+        from .holidays import get_calendar
+
+        return get_calendar().match_filter(self.holiday_filter, date.today())
+
     def check_activate(
         self,
         *,
@@ -284,6 +296,13 @@ class LoreEntry(ConfigNode):
         text_hit = self._has_text_token(text)
         cron_hit = self.in_cron_window
         if not text_hit and not cron_hit:
+            return False
+
+        # 节假日过滤：cron 激活的路径在注入时判定（窗口跨午夜也能按新一天计算）
+        if cron_hit and not self._calendar_match():
+            logger.debug(
+                f"[条目:{self.name}] 被节假日过滤({self.holiday_filter})拦截"
+            )
             return False
 
         # Gate 4: 激活的概率
@@ -415,6 +434,13 @@ class LoreEntry(ConfigNode):
         # ===== 定时规则（有就展示）=====
         if self.cron:
             lines.append(f"- 定时触发:  {self.cron}")
+            if self.holiday_filter != "ignore":
+                label = (
+                    "仅工作日触发"
+                    if self.holiday_filter == "workday"
+                    else "仅节假日触发"
+                )
+                lines.append(f"- 节假日过滤:  {label}")
 
         lines.extend(
             [
