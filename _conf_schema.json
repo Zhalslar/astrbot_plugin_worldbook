@@ -426,6 +426,17 @@
             "type": "string",
             "default": "0 0 * * *"
           },
+          "holiday_filter": {
+            "description": "节假日过滤",
+            "hint": "在每天注入日程前先判断今天是不是法定工作日（自动识别法定节假日与调休）。不限：不判断；仅工作日：周末和法定节假日不注入（调休补班的周末照常注入）；仅节假日：只在周末和法定节假日注入（调休补班的周末不注入）",
+            "type": "string",
+            "options": [
+              "ignore",
+              "workday",
+              "holiday"
+            ],
+            "default": "ignore"
+          },
           "duration": {
             "description": "日程有效期",
             "hint": "默认在当天内持续生效（24 小时）",
