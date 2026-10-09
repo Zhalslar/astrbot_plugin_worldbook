@@ -15,6 +15,7 @@ from .core.lorebook import Lorebook
 from .core.scheduler import LoreCronScheduler
 from .core.session import SessionCache
 from .core.share import LorebookShare
+from .core.template import Template
 from .core.wildcard import WildcardResolver
 
 
@@ -72,65 +73,96 @@ class WorldBookPlugin(Star):
         event: AstrMessageEvent,
         name: str,
         content: str,
+        template: str = "common",
         keywords: str = "",
+        cron: str = "",
+        probability: float = 1.0,
+        target_id: str = "",
     ) -> str:
-        """Add a common worldbook entry.
+        """Add a worldbook entry with specified template and trigger rules.
 
-        This can be used for lightweight memory, reusable rules, project or
-        character context, user preferences, and compact summaries.
+        Templates:
+        - common: Default keyword-triggered entry. Good for rules, general memory, notes.
+        - resident: Always injected unconditionally into prompt. Good for core persona/rules.
+        - chance: Low probability random injection. Good for casual remarks.
+        - schedule: Cron-based timed injection. Good for reminders, daily/hourly events.
+        - user: Injected only for specific user (set target_id to QQ/User ID).
+        - group: Injected only in specific group (set target_id to Group ID).
 
         Args:
-            name(string): Short unique entry name, no more than 10 characters.
+            name(string): Short unique entry name, <= 10 characters.
             content(string): Entry content to inject when activated.
-            keywords(string): Optional trigger keywords or regex patterns separated by
-                commas, spaces, or new lines. Defaults to name.
-
-        Returns:
-            A plain text result describing whether the entry was added.
+            template(string): Template type: common, resident, chance, schedule, user, group. Defaults to common.
+            keywords(string): Optional trigger keywords or regex patterns separated by commas. Defaults to name.
+            cron(string): 5-segment cron expression, required when template is schedule (e.g. '0 8 * * *').
+            probability(number): Trigger probability from 0.0 to 1.0, used when template is chance.
+            target_id(string): Target user QQ or group ID when template is user or group.
         """
         name = str(name).strip()
         content = str(content).strip()
+        template_str = str(template or "common").strip().lower()
         keywords = str(keywords or "").strip()
+        cron = str(cron or "").strip()
+        target_id = str(target_id or "").strip()
 
         if not name:
             return "Worldbook entry add failed: name is required."
         if len(name) > 10:
-            return (
-                "Worldbook entry add failed: name must be no more than 10 characters."
-            )
+            return "Worldbook entry add failed: name must be no more than 10 characters."
         if not content:
             return "Worldbook entry add failed: content is required."
         if self.lorebook.get_entry(name):
             return f"Worldbook entry add failed: entry already exists: {name}"
 
-        trigger_keywords: list[str] = []
-        raw_keywords = (
-            keywords.replace("\uff0c", ",")
-            .replace("\n", ",")
-            .replace(" ", ",")
-            .split(",")
-        )
-        for keyword in raw_keywords:
-            keyword = keyword.strip()
-            if keyword and keyword not in trigger_keywords:
-                trigger_keywords.append(keyword)
-            if len(trigger_keywords) >= 8:
-                break
-        if not trigger_keywords:
-            trigger_keywords = [name]
+        try:
+            tmpl = Template.from_data({"template": template_str})
+        except ValueError as e:
+            return f"Worldbook entry add failed: {e}"
 
-        data = {
-            "template": "common",
+        entry_data = tmpl.defaults()
+        entry_data.update({
+            "template": tmpl.value,
             "name": name,
-            "keywords": trigger_keywords,
             "content": content,
-        }
+        })
+
+        if tmpl in (Template.COMMON, Template.DEFAULT):
+            trigger_keywords: list[str] = []
+            raw_keywords = (
+                keywords.replace("\uff0c", ",")
+                .replace("\n", ",")
+                .replace(" ", ",")
+                .split(",")
+            )
+            for kw in raw_keywords:
+                kw = kw.strip()
+                if kw and kw not in trigger_keywords:
+                    trigger_keywords.append(kw)
+                if len(trigger_keywords) >= 8:
+                    break
+            entry_data["keywords"] = trigger_keywords or [name]
+        elif keywords:
+            raw_keywords = [k.strip() for k in keywords.replace("\uff0c", ",").replace("\n", ",").split(",") if k.strip()]
+            if raw_keywords:
+                entry_data["keywords"] = raw_keywords[:8]
+
+        if tmpl == Template.SCHEDULE and cron:
+            entry_data["cron"] = cron
+
+        if tmpl == Template.CHANCE:
+            try:
+                entry_data["probability"] = max(0.0, min(1.0, float(probability)))
+            except (ValueError, TypeError):
+                pass
+
+        if tmpl in (Template.USER, Template.GROUP) and target_id:
+            entry_data["scope"] = [target_id]
 
         try:
-            names = self.lorebook.add_entries([data])
+            names = self.lorebook.add_entries([entry_data])
             if not names:
                 return f"Worldbook entry add failed: entry already exists: {name}"
-            return f"Worldbook entry added: {', '.join(names)}"
+            return f"Worldbook entry added: {', '.join(names)} (template={tmpl.value})"
         except Exception as e:
             logger.error(f"worldbook_add_entry failed: {e}")
             return f"Worldbook entry add failed: {e}"
